@@ -221,7 +221,7 @@ export default function JobTracker() {
     });
     setPrepPlans(prev => [plan, ...prev]);
     if (targeted) await refreshJob();
-    navigate(`/prep-plans/${plan.id}`);
+    navigate(`/prep-plans/${plan.id}?mode=edit`);
   }
 
   const metrics = [
@@ -588,7 +588,7 @@ export default function JobTracker() {
                         ) : visiblePrepPlans.map(plan => (
                           <button
                             key={plan.id}
-                            onClick={() => navigate(`/prep-plans/${plan.id}`)}
+                            onClick={() => navigate(`/prep-plans/${plan.id}?mode=view`)}
                             className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-left transition-colors hover:border-indigo-200 hover:bg-indigo-50/60"
                           >
                             <div className="mb-2 flex items-center justify-between gap-2">
