@@ -1,0 +1,1326 @@
+import { Fragment } from 'react';
+import { Mail, Phone, MapPin, Globe, Linkedin, Github } from 'lucide-react';
+
+// ── Shared tokens ─────────────────────────────────────────────────────────────
+const sans  = { fontFamily: "'Aptos', 'Segoe UI', Arial, sans-serif" };
+const serif = { fontFamily: "'Aptos', 'Segoe UI', Arial, sans-serif" };
+
+// Inline markdown renderer — supports **bold**, *italic*, ~~strike~~, `code`
+function InlineMarkdown({ text }) {
+  if (!text) return null;
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~|`([^`]+)`/g;
+  const parts = [];
+  let last = 0, key = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if      (m[1] != null) parts.push(<strong key={key++}>{m[1]}</strong>);
+    else if (m[2] != null) parts.push(<em key={key++}>{m[2]}</em>);
+    else if (m[3] != null) parts.push(<del key={key++}>{m[3]}</del>);
+    else if (m[4] != null) parts.push(<code key={key++} style={{ fontFamily: 'monospace', fontSize: '0.9em', background: '#f1f5f9', padding: '0 2px 1px', borderRadius: 2 }}>{m[4]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
+function certYear(s) {
+  const m = String(s || '').match(/\b(20\d{2}|19\d{2})\b/);
+  return m ? m[1] : '';
+}
+
+function ProjectEntry({ proj, nameColor, descColor = '#475569', fontSize = 11.5, lineHeight = 1.5, margin = 0 }) {
+  return (
+    <p style={{ ...sans, fontSize, lineHeight, color: descColor, margin }}>
+      <strong style={{ color: nameColor }}>{proj.name}</strong>
+      {proj.description && <>{' '}<InlineMarkdown text={proj.description} /></>}
+    </p>
+  );
+}
+
+function compactBullets(items, max = 4) {
+  return (items || []).filter(Boolean).slice(0, max);
+}
+
+function groupCerts(certs) {
+  const groups = [], map = {};
+  for (const c of (certs || [])) {
+    const g = (c.cert_group || '').trim();
+    if (!g) { groups.push({ label: '', items: [c] }); }
+    else if (map[g]) { map[g].items.push(c); }
+    else { const e = { label: g, items: [c] }; map[g] = e; groups.push(e); }
+  }
+  return groups;
+}
+
+function CertGroups({ certs, spacers = {}, header, nameColor = '#1e293b', issuerColor = '#64748b', yearColor = '#94a3b8', fontSize = 11.5 }) {
+  if (!certs || !certs.length) return null;
+  const groups = groupCerts(certs);
+  return (
+    <>
+      {groups.map((grp, gi) => (
+        <div key={gi}>
+          {spacers[`cert-${gi}`] > 0 && <div style={{ height: spacers[`cert-${gi}`] }} />}
+          <div data-block={`cert-${gi}`}>
+            {gi === 0 && header}
+            <div style={{ ...sans, fontSize, lineHeight: 1.5, color: nameColor }}>
+              {grp.label && <strong>{grp.label}: </strong>}
+              {grp.items.map((c, ci) => {
+                const year = certYear(c.issued_date || c.expiry_date);
+                return (
+                  <span key={c.id}>
+                    {ci > 0 && <span style={{ color: '#94a3b8', padding: '0 5px' }}>—</span>}
+                    {c.name}
+                    {c.issuer && <span style={{ color: issuerColor }}> · {c.issuer}</span>}
+                    {year && <span style={{ color: yearColor }}> · {year}</span>}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Shared sub-components used across multiple themes
+function DateLabel({ start, end, current }) {
+  const parts = [start, current ? 'Present' : end].filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <span style={{ ...sans, fontSize: 10.2, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0, paddingLeft: 12 }}>
+      {parts.join(' – ')}
+    </span>
+  );
+}
+
+function Bullets({ items, spacers = {}, blockPrefix, dash = false, fontSize = 11.8 }) {
+  const filled = (items || []).filter(Boolean);
+  if (!filled.length) return null;
+  return (
+    <ul style={{ marginTop: 5, listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {filled.map((b, i) => {
+        const key = blockPrefix ? `${blockPrefix}-bullet-${i}` : undefined;
+        return (
+          <Fragment key={i}>
+            {key && spacers[key] > 0 && <li aria-hidden="true" style={{ height: spacers[key], listStyle: 'none', padding: 0, margin: 0 }} />}
+            <li data-block={key} data-atomic="true" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              {dash
+                ? <span style={{ ...sans, fontSize: 10, color: '#94a3b8', flexShrink: 0, lineHeight: 1.56 }}>–</span>
+                : <span style={{ ...sans, fontSize: 11, color: '#94a3b8', flexShrink: 0, lineHeight: 1.56 }}>•</span>
+              }
+              <span style={{ ...serif, fontSize, lineHeight: 1.56, color: '#475569' }}><InlineMarkdown text={b} /></span>
+            </li>
+          </Fragment>
+        );
+      })}
+    </ul>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLASSIC THEME
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ClassicSectionTitle({ children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, marginTop: 2 }}>
+      <span style={{ ...sans, fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+        {children}
+      </span>
+      <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+    </div>
+  );
+}
+
+function urlDisplay(value) {
+  return (value || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+}
+
+function ContactItem({ icon: Icon, value }) {
+  if (!value) return null;
+  const display = urlDisplay(value);
+  return (
+    <span style={{ ...sans, display: 'inline-flex', alignItems: 'center', gap: 3, color: '#64748b' }}>
+      <Icon size={9} style={{ flexShrink: 0, opacity: 0.7 }} />
+      <span>{display}</span>
+    </span>
+  );
+}
+
+export function ClassicBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+
+  return (
+    <>
+      <div style={{ textAlign: 'center', marginBottom: 12 }}>
+        <h1 style={{ ...sans, fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
+          {p.full_name || <span style={{ color: '#cbd5e1', fontWeight: 400, fontSize: 18, fontStyle: 'italic' }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...sans, fontSize: 12.2, color: '#64748b', letterSpacing: '0.02em', margin: '5px 0 0' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', margin: '3px 0 0' }}>{p.subtitle}</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '3px 14px', fontSize: 10.2, marginTop: 5 }}>
+          <ContactItem icon={Mail} value={p.email} /><ContactItem icon={Phone} value={p.phone} />
+          <ContactItem icon={MapPin} value={p.location} /><ContactItem icon={Globe} value={p.website} />
+          <ContactItem icon={Linkedin} value={p.linkedin} /><ContactItem icon={Github} value={p.github} />
+        </div>
+      </div>
+      {p.summary && <div style={{ marginBottom: 14 }}><ClassicSectionTitle>Summary</ClassicSectionTitle><p style={{ ...serif, fontSize: 12.2, lineHeight: 1.56, color: '#475569', margin: 0 }}><InlineMarkdown text={p.summary} /></p></div>}
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <ClassicSectionTitle>Career Highlights</ClassicSectionTitle>
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={12.2} />
+        </div>
+      )}
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 14, order: 30 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {exps.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && <ClassicSectionTitle>Experience</ClassicSectionTitle>}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#1e293b', margin: 0 }}>{exp.company}</p>
+                      <p style={{ ...serif, fontSize: 11.8, color: '#64748b', fontStyle: 'italic', margin: '1px 0 0' }}>{[exp.title, exp.location].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 14, order: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && <ClassicSectionTitle>Education</ClassicSectionTitle>}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#1e293b', margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...serif, fontSize: 11.8, color: '#64748b', margin: '1px 0 0' }}>{[edu.degree, edu.field].filter(Boolean).join(', ')}{edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 8 }}>· GPA {edu.gpa}</span>}</p>
+                      {edu.details && <p style={{ ...serif, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
+                      <DateLabel start={edu.start_date} end={edu.end_date} />
+                      {edu.location && <p style={{ ...sans, fontSize: 10.2, color: '#94a3b8', margin: '2px 0 0' }}>{edu.location}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 14, order: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && <ClassicSectionTitle>Skills</ClassicSectionTitle>}
+                  <div style={{ display: 'flex', gap: 8, fontSize: 11.8 }}>
+                    {s.category && <span style={{ ...sans, fontWeight: 600, color: '#374151', minWidth: 90, flexShrink: 0 }}>{s.category}</span>}
+                    <span style={{ ...serif, color: '#475569' }}>{(s.items || []).join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 14, order: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && <ClassicSectionTitle>Notable Projects</ClassicSectionTitle>}
+                  <ProjectEntry proj={proj} nameColor="#1e293b" descColor="#475569" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 14, order: 50 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={<ClassicSectionTitle>Certifications &amp; Training</ClassicSectionTitle>}
+              nameColor="#1e293b" issuerColor="#64748b" yearColor="#94a3b8" fontSize={11.5} />
+          </div>
+        </div>
+      )}
+      {isEmpty && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingBottom: 80, textAlign: 'center' }}><p style={{ ...sans, fontSize: 12.2, color: '#cbd5e1' }}>Fill in your details on the left →</p></div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODERN THEME  — left-aligned, strong indigo accents
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ModernSection({ children, label, order }) {
+  return (
+    <div style={{ marginBottom: 12, order }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+        <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>{label}</span>
+        <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function ModernBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+
+  const contactLine = [p.email, p.phone, p.location, p.website?.replace(/^https?:\/\//, '')].filter(Boolean);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 14, borderBottom: '2px solid #6366f1', paddingBottom: 14 }}>
+        <h1 style={{ ...sans, fontSize: 23, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+          {p.full_name || <span style={{ color: '#e0e7ff', fontWeight: 400, fontSize: 18, fontStyle: 'italic' }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...sans, fontSize: 12.2, fontWeight: 500, color: '#6366f1', margin: '4px 0 0', letterSpacing: '0.01em' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', margin: '2px 0 0' }}>{p.subtitle}</p>}
+        {contactLine.length > 0 && (
+          <p style={{ ...sans, fontSize: 10, color: '#64748b', margin: '8px 0 0', letterSpacing: '0.02em' }}>
+            {contactLine.join('  ·  ')}
+            {p.linkedin && <span>  ·  {urlDisplay(p.linkedin)}</span>}
+            {p.github && <span>  ·  {urlDisplay(p.github)}</span>}
+          </p>
+        )}
+      </div>
+
+      {p.summary && (
+        <ModernSection label="Summary">
+          <p style={{ ...serif, fontSize: 12.2, lineHeight: 1.56, color: '#475569', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+        </ModernSection>
+      )}
+
+      {highlights.length > 0 && (
+        <ModernSection label="Career Highlights">
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={12.2} />
+        </ModernSection>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 12, order: 30 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {exps.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>Experience</span>
+                      <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#1e293b', margin: 0 }}>{exp.company}</p>
+                      <p style={{ ...sans, fontSize: 11.2, color: '#6366f1', fontWeight: 500, margin: '1px 0 0' }}>{[exp.title, exp.location].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 12, order: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>Education</span>
+                      <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#1e293b', margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...sans, fontSize: 11.2, color: '#6366f1', fontWeight: 500, margin: '1px 0 0' }}>{[edu.degree, edu.field].filter(Boolean).join(', ')}{edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· GPA {edu.gpa}</span>}</p>
+                    </div>
+                    <DateLabel start={edu.start_date} end={edu.end_date} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 12, order: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>Skills</span>
+                      <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    {s.category && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: '#374151', minWidth: 90, flexShrink: 0, paddingTop: 1 }}>{s.category}</span>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 6px' }}>
+                      {(s.items || []).map(item => (
+                        <span key={item} style={{ ...sans, fontSize: 10.2, background: '#eef2ff', color: '#4f46e5', padding: '1px 7px', borderRadius: 99, border: '1px solid #c7d2fe' }}>{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 12, order: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>Notable Projects</span>
+                      <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+                    </div>
+                  )}
+                  <ProjectEntry proj={proj} nameColor="#1e293b" descColor="#475569" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 12, order: 50 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <div style={{ width: 3, height: 14, background: '#6366f1', borderRadius: 2, flexShrink: 0 }} />
+                  <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#6366f1' }}>Certifications &amp; Training</span>
+                  <div style={{ flex: 1, height: 1, background: '#e0e7ff' }} />
+                </div>
+              }
+              nameColor="#1e293b" issuerColor="#6366f1" yearColor="#94a3b8" fontSize={11.5} />
+          </div>
+        </div>
+      )}
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#e0e7ff', ...sans, fontSize: 12.2 }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXECUTIVE THEME  — dark header band, bold hierarchy
+// ══════════════════════════════════════════════════════════════════════════════
+
+const EXEC_PAD = 44; // must match PAD_X in ResumePreview
+
+function ExecSection({ children, label, order }) {
+  return (
+    <div style={{ marginBottom: 14, order }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
+        <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>{label}</span>
+        <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function ExecutiveBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+
+  const contactLine = [p.email, p.phone, p.location,
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github && urlDisplay(p.github),
+  ].filter(Boolean).join('   ·   ');
+
+  return (
+    <>
+      {/* Dark header — negative margin to bleed full width */}
+      <div style={{ margin: `0 -${EXEC_PAD}px 22px`, background: '#1e293b', padding: `22px ${EXEC_PAD}px 18px` }}>
+        <h1 style={{ ...sans, fontSize: 23, fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+          {p.full_name || <span style={{ color: '#475569', fontWeight: 400, fontStyle: 'italic', fontSize: 18 }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...sans, fontSize: 12.2, color: '#94a3b8', margin: '5px 0 0', fontWeight: 400, letterSpacing: '0.03em' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 11, color: '#64748b', margin: '2px 0 0', letterSpacing: '0.02em' }}>{p.subtitle}</p>}
+        {contactLine && <p style={{ ...sans, fontSize: 10, color: '#64748b', margin: '10px 0 0', letterSpacing: '0.04em' }}>{contactLine}</p>}
+      </div>
+
+      {p.summary && (
+        <ExecSection label="Summary">
+          <p style={{ ...serif, fontSize: 12.2, lineHeight: 1.56, color: '#475569', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+        </ExecSection>
+      )}
+
+      {highlights.length > 0 && (
+        <ExecSection label="Career Highlights">
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={12.2} />
+        </ExecSection>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 14, order: 30 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {exps.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>Experience</span>
+                      <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#0f172a', margin: 0 }}>{exp.company}</p>
+                      <p style={{ ...serif, fontSize: 11.8, color: '#64748b', fontStyle: 'italic', margin: '1px 0 0' }}>{[exp.title, exp.location].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 14, order: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>Education</span>
+                      <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#0f172a', margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...serif, fontSize: 11.8, color: '#64748b', margin: '1px 0 0' }}>{[edu.degree, edu.field].filter(Boolean).join(', ')}{edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 8 }}>· GPA {edu.gpa}</span>}</p>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
+                      <DateLabel start={edu.start_date} end={edu.end_date} />
+                      {edu.location && <p style={{ ...sans, fontSize: 10.2, color: '#94a3b8', margin: '2px 0 0' }}>{edu.location}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 14, order: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 9 }}>
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>Skills</span>
+                      <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, fontSize: 11.8 }}>
+                    {s.category && <span style={{ ...sans, fontWeight: 700, color: '#1e293b', minWidth: 90, flexShrink: 0 }}>{s.category}</span>}
+                    <span style={{ ...serif, color: '#475569' }}>{(s.items || []).join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 14, order: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                      <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>Notable Projects</span>
+                      <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+                    </div>
+                  )}
+                  <ProjectEntry proj={proj} nameColor="#0f172a" descColor="#475569" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 14, order: 50 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                  <span style={{ ...sans, fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#1e293b' }}>Certifications &amp; Training</span>
+                  <div style={{ flex: 1, height: 1.5, background: '#1e293b', opacity: 0.15 }} />
+                </div>
+              }
+              nameColor="#0f172a" issuerColor="#64748b" yearColor="#94a3b8" fontSize={11.5} />
+          </div>
+        </div>
+      )}
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#94a3b8', ...sans, fontSize: 12.2 }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MINIMAL THEME  — ultra-clean, whitespace-first
+// ══════════════════════════════════════════════════════════════════════════════
+
+function MinimalSection({ children, label, order }) {
+  return (
+    <div style={{ marginBottom: 14, order }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+        <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>{label}</p>
+        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function MinimalBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github && urlDisplay(p.github)].filter(Boolean);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 13 }}>
+        <h1 style={{ ...sans, fontSize: 23, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.12 }}>
+          {p.full_name || <span style={{ color: '#e2e8f0' }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...sans, fontSize: 12, color: '#334155', margin: '4px 0 0', fontWeight: 600 }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 10.8, color: '#64748b', margin: '2px 0 0' }}>{p.subtitle}</p>}
+        <div style={{ height: 1, background: '#cbd5e1', margin: '9px 0 6px' }} />
+        {contactParts.length > 0 && (
+          <p style={{ ...sans, fontSize: 10.2, color: '#475569', margin: 0, letterSpacing: '0.01em', lineHeight: 1.35 }}>{contactParts.join('  ·  ')}</p>
+        )}
+      </div>
+
+      {p.summary && (
+        <MinimalSection label="Profile">
+          <p style={{ ...serif, fontSize: 11.8, lineHeight: 1.48, color: '#334155', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+        </MinimalSection>
+      )}
+
+      {highlights.length > 0 && (
+        <MinimalSection label="Career Highlights">
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" dash fontSize={12.2} />
+        </MinimalSection>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 14, order: 30 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {exps.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>Experience</p>
+                      <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12, fontWeight: 700, color: '#0f172a', margin: 0 }}>{exp.title}</p>
+                      <p style={{ ...sans, fontSize: 10.8, color: '#64748b', margin: '2px 0 0', fontWeight: 500 }}>{[exp.company, exp.location].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <span style={{ ...sans, fontSize: 10.2, color: '#64748b', whiteSpace: 'nowrap', paddingLeft: 12 }}>
+                      {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                    </span>
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 10.8, fontStyle: 'italic', color: '#64748b', lineHeight: 1.45, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} dash />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 14, order: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>Education</p>
+                      <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 12, fontWeight: 700, color: '#0f172a', margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...sans, fontSize: 10.8, color: '#64748b', margin: '2px 0 0' }}>{[edu.degree, edu.field].filter(Boolean).join(', ')}{edu.gpa && ` · GPA ${edu.gpa}`}</p>
+                    </div>
+                    <span style={{ ...sans, fontSize: 10.2, color: '#64748b', whiteSpace: 'nowrap', paddingLeft: 12 }}>
+                      {[edu.start_date, edu.end_date].filter(Boolean).join(' – ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 14, order: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>Skills</p>
+                      <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '108px 1fr', columnGap: 10, alignItems: 'baseline', lineHeight: 1.42 }}>
+                    {s.category && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: '#334155', minWidth: 0 }}>{s.category}</span>}
+                    <span style={{ ...sans, fontSize: 11.2, color: '#475569' }}>{(s.items || []).join('  ·  ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 14, order: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>Notable Projects</p>
+                      <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                    </div>
+                  )}
+                  <ProjectEntry proj={proj} nameColor="#0f172a" descColor="#475569" fontSize={11.2} lineHeight={1.45} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 14, order: 50 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                  <p style={{ ...sans, fontSize: 8.4, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#334155', margin: 0 }}>Certifications</p>
+                  <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                </div>
+              }
+              nameColor="#0f172a" issuerColor="#64748b" yearColor="#64748b" fontSize={11.2} />
+          </div>
+        </div>
+      )}
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#e2e8f0', ...sans, fontSize: 12.2 }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEADERSHIP THEME  — ATS-optimized single-column for senior engineering leaders
+// ══════════════════════════════════════════════════════════════════════════════
+
+const NAVY     = '#1E3A8A';
+const CHARCOAL = '#1F2937';
+const MUTED    = '#6B7280';
+
+function LeadershipSectionTitle({ children }) {
+  return (
+    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function LeadershipBullets({ items, spacers = {}, blockPrefix, fontSize = 10.5, lineHeight = 1.35, gap = 3 }) {
+  const filled = (items || []).filter(Boolean);
+  if (!filled.length) return null;
+  return (
+    <ul style={{ marginTop: 4, listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap }}>
+      {filled.map((b, i) => {
+        const key = blockPrefix ? `${blockPrefix}-bullet-${i}` : undefined;
+        return (
+          <Fragment key={i}>
+            {key && spacers[key] > 0 && <li aria-hidden="true" style={{ height: spacers[key], listStyle: 'none', padding: 0, margin: 0 }} />}
+            <li data-block={key} data-atomic="true" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize, lineHeight, color: CHARCOAL, ...sans }}>
+              <span style={{ flexShrink: 0, color: MUTED, fontSize: 10, lineHeight }}>•</span>
+              <span><InlineMarkdown text={b} /></span>
+            </li>
+          </Fragment>
+        );
+      })}
+    </ul>
+  );
+}
+
+export function LeadershipBody({ resume, spacers = {} }) {
+  const p          = resume.personal       || {};
+  const highlights = resume.highlights     || [];
+  const exps       = resume.experiences    || [];
+  const edus       = resume.education      || [];
+  const skills     = resume.skills         || [];
+  const projects   = resume.projects       || [];
+  const certs      = resume.certifications || [];
+  const isEmpty    = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+  const recent      = exps.slice(0, 3);
+  const prior       = exps.slice(3);
+
+  // Full domain URLs, pipe-separated — ATS-safe (no icons)
+  const contactParts = [
+    p.email, p.phone, p.location,
+    p.website && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 14 }}>
+        <h1 style={{ ...sans, fontSize: 22, fontWeight: 700, color: NAVY, margin: 0, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          {p.full_name || <span style={{ color: '#d1d5db', fontWeight: 400, fontStyle: 'italic', fontSize: 18 }}>Your Name</span>}
+        </h1>
+        {p.tagline && (
+          <p style={{ ...sans, fontSize: 12, fontWeight: 500, color: CHARCOAL, margin: '4px 0 0', letterSpacing: '0.01em' }}>
+            {p.tagline}
+          </p>
+        )}
+        {p.subtitle && (
+          <p style={{ ...sans, fontSize: 11, color: MUTED, margin: '2px 0 0' }}>
+            {p.subtitle}
+          </p>
+        )}
+        {contactParts.length > 0 && (
+          <p style={{ ...sans, fontSize: 10, color: CHARCOAL, margin: '5px 0 0', lineHeight: 1.35 }}>
+            {contactParts.join('  |  ')}
+          </p>
+        )}
+      </div>
+
+      {/* Summary */}
+      {p.summary && (
+        <div style={{ marginBottom: 12 }}>
+          <LeadershipSectionTitle>Summary</LeadershipSectionTitle>
+          <p style={{ ...sans, fontSize: 10.5, lineHeight: 1.45, color: CHARCOAL, margin: '6px 0 0' }}><InlineMarkdown text={p.summary} /></p>
+        </div>
+      )}
+
+      {/* Career Highlights */}
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <LeadershipSectionTitle>Career Highlights</LeadershipSectionTitle>
+          <LeadershipBullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" />
+        </div>
+      )}
+
+      {/* Skills — BEFORE Experience for leadership candidates */}
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Core Competencies</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '128px 1fr', columnGap: 8, alignItems: 'baseline', fontSize: 10.2, lineHeight: 1.32, color: CHARCOAL }}>
+                    {s.category && (
+                      <span style={{ ...sans, fontWeight: 700, minWidth: 0 }}>
+                        {s.category}:
+                      </span>
+                    )}
+                    <span style={{ ...sans }}>{(s.items || []).join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Professional Experience */}
+      {recent.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+            {recent.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Professional Experience</span>
+                    </div>
+                  )}
+                  <p style={{ ...sans, fontSize: 11, margin: 0, color: CHARCOAL }}>
+                    <strong style={{ fontWeight: 700 }}>{exp.title}</strong>
+                    {exp.title && exp.company && <span style={{ color: MUTED, margin: '0 5px' }}>·</span>}
+                    <span style={{ fontWeight: 400 }}>{exp.company}</span>
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 1 }}>
+                    <span style={{ ...sans, fontSize: 10, color: MUTED }}>{exp.location || ''}</span>
+                    <span style={{ ...sans, fontSize: 10, color: MUTED, flexShrink: 0 }}>
+                      {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                    </span>
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <LeadershipBullets items={compactBullets(exp.bullets)} spacers={spacers} blockPrefix={`exp-${i}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Earlier Career */}
+      {prior.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            {prior.map((exp, i) => {
+              const idx = i + recent.length;
+              return (
+                <div key={exp.id}>
+                  {spacers[`exp-${idx}`] > 0 && <div style={{ height: spacers[`exp-${idx}`] }} />}
+                  <div data-block={`exp-${idx}`}>
+                    {i === 0 && (
+                      <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                        <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Earlier Career</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                      <span style={{ ...sans, fontSize: 10.5, lineHeight: 1.32, color: CHARCOAL }}>
+                        <strong style={{ fontWeight: 600 }}>{exp.title}</strong>
+                        {exp.company && <span style={{ color: MUTED }}> · {exp.company}</span>}
+                        {exp.location && <span style={{ color: MUTED }}>, {exp.location}</span>}
+                      </span>
+                      <span style={{ ...sans, fontSize: 10, color: MUTED, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Notable Projects */}
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Notable Projects</span>
+                    </div>
+                  )}
+                  <ProjectEntry proj={proj} nameColor={CHARCOAL} descColor={CHARCOAL} fontSize={10} lineHeight={1.28} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Education — last section */}
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Education</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 11, fontWeight: 700, color: CHARCOAL, margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...sans, fontSize: 10.5, color: CHARCOAL, fontWeight: 400, margin: '1px 0 0' }}>
+                        {[edu.degree, edu.field].filter(Boolean).join(', ')}
+                        {edu.gpa && <span style={{ color: MUTED, marginLeft: 8 }}>· GPA {edu.gpa}</span>}
+                      </p>
+                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.details}</p>}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
+                      <span style={{ ...sans, fontSize: 10, color: MUTED, whiteSpace: 'nowrap' }}>
+                        {[edu.start_date, edu.end_date].filter(Boolean).join(' – ')}
+                      </span>
+                      {edu.location && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.location}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Certifications — after Education */}
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={
+                <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                  <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>
+                    Certifications &amp; Training
+                  </span>
+                </div>
+              }
+              nameColor={CHARCOAL} issuerColor={MUTED} yearColor={MUTED} fontSize={11} />
+          </div>
+        </div>
+      )}
+
+      {isEmpty && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingBottom: 80 }}>
+          <p style={{ ...sans, fontSize: 12.2, color: '#d1d5db' }}>Fill in your details on the left →</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMPACT THEME — Leadership-style; top 3 experiences full, rest condensed
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function CompactBody({ resume, spacers = {} }) {
+  const p          = resume.personal       || {};
+  const highlights = resume.highlights     || [];
+  const exps       = resume.experiences    || [];
+  const edus       = resume.education      || [];
+  const skills     = resume.skills         || [];
+  const projects   = resume.projects       || [];
+  const certs      = resume.certifications || [];
+  const isEmpty    = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+
+  // First 3 (display order = most recent first) get full bullets; rest condensed
+  const recent = exps.slice(0, 3);
+  const prior  = exps.slice(3);
+
+  const contactParts = [
+    p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 12 }}>
+        <h1 style={{ ...sans, fontSize: 22, fontWeight: 700, color: NAVY, margin: 0, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          {p.full_name || <span style={{ color: '#d1d5db', fontWeight: 400, fontStyle: 'italic', fontSize: 18 }}>Your Name</span>}
+        </h1>
+        {p.tagline  && <p style={{ ...sans, fontSize: 12,   fontWeight: 500, color: CHARCOAL, margin: '4px 0 0' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 11,   color: MUTED,    margin: '2px 0 0' }}>{p.subtitle}</p>}
+        {contactParts.length > 0 && (
+          <p style={{ ...sans, fontSize: 10, color: CHARCOAL, margin: '5px 0 0', lineHeight: 1.35 }}>
+            {contactParts.join('  |  ')}
+          </p>
+        )}
+      </div>
+
+      {/* Summary */}
+      {p.summary && (
+        <div style={{ marginBottom: 12 }}>
+          <LeadershipSectionTitle>Summary</LeadershipSectionTitle>
+          <p style={{ ...sans, fontSize: 10.5, lineHeight: 1.45, color: CHARCOAL, margin: '6px 0 0' }}><InlineMarkdown text={p.summary} /></p>
+        </div>
+      )}
+
+      {/* Career Highlights */}
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <LeadershipSectionTitle>Career Highlights</LeadershipSectionTitle>
+          <LeadershipBullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" />
+        </div>
+      )}
+
+      {/* Core Competencies */}
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            {skills.map((s, i) => (
+              <div key={s.id}>
+                {spacers[`skill-${i}`] > 0 && <div style={{ height: spacers[`skill-${i}`] }} />}
+                <div data-block={`skill-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Core Competencies</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '128px 1fr', columnGap: 8, alignItems: 'baseline', fontSize: 10.2, lineHeight: 1.32, color: CHARCOAL }}>
+                    {s.category && <span style={{ ...sans, fontWeight: 700, minWidth: 0 }}>{s.category}:</span>}
+                    <span style={{ ...sans }}>{(s.items || []).join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Professional Experience — top 3 with full bullets */}
+      {recent.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+            {recent.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`exp-${i}`] > 0 && <div style={{ height: spacers[`exp-${i}`] }} />}
+                <div data-block={`exp-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Professional Experience</span>
+                    </div>
+                  )}
+                  <p style={{ ...sans, fontSize: 11, margin: 0, color: CHARCOAL }}>
+                    <strong style={{ fontWeight: 700 }}>{exp.title}</strong>
+                    {exp.title && exp.company && <span style={{ color: MUTED, margin: '0 5px' }}>·</span>}
+                    <span style={{ fontWeight: 400 }}>{exp.company}</span>
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 1 }}>
+                    <span style={{ ...sans, fontSize: 10, color: MUTED }}>{exp.location || ''}</span>
+                    <span style={{ ...sans, fontSize: 10, color: MUTED, flexShrink: 0 }}>
+                      {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                    </span>
+                  </div>
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  <LeadershipBullets items={compactBullets(exp.bullets)} spacers={spacers} blockPrefix={`exp-${i}`} fontSize={10.2} lineHeight={1.3} gap={2} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Earlier Career — condensed one-liners */}
+      {prior.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {prior.map((exp, i) => (
+              <div key={exp.id}>
+                {spacers[`prior-${i}`] > 0 && <div style={{ height: spacers[`prior-${i}`] }} />}
+                <div data-block={`prior-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 7, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Earlier Career</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ ...sans, fontSize: 10.5, color: CHARCOAL, lineHeight: 1.4 }}>
+                      <strong style={{ fontWeight: 600 }}>{exp.title}</strong>
+                      {exp.company  && <span style={{ color: MUTED }}> · {exp.company}</span>}
+                      {exp.location && <span style={{ color: MUTED }}>, {exp.location}</span>}
+                    </span>
+                    <span style={{ ...sans, fontSize: 10, color: MUTED, flexShrink: 0, paddingLeft: 12, whiteSpace: 'nowrap' }}>
+                      {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notable Projects */}
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+            {projects.map((proj, i) => (
+              <div key={proj.id}>
+                {spacers[`proj-${i}`] > 0 && <div style={{ height: spacers[`proj-${i}`] }} />}
+                <div data-block={`proj-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Notable Projects</span>
+                    </div>
+                  )}
+                  <ProjectEntry proj={proj} nameColor={CHARCOAL} descColor={CHARCOAL} fontSize={10} lineHeight={1.28} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Education */}
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            {edus.map((edu, i) => (
+              <div key={edu.id}>
+                {spacers[`edu-${i}`] > 0 && <div style={{ height: spacers[`edu-${i}`] }} />}
+                <div data-block={`edu-${i}`}>
+                  {i === 0 && (
+                    <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                      <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>Education</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ ...sans, fontSize: 11, fontWeight: 700, color: CHARCOAL, margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...sans, fontSize: 10.5, color: CHARCOAL, fontWeight: 400, margin: '1px 0 0' }}>
+                        {[edu.degree, edu.field].filter(Boolean).join(', ')}
+                        {edu.gpa && <span style={{ color: MUTED, marginLeft: 8 }}>· GPA {edu.gpa}</span>}
+                      </p>
+                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.details}</p>}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
+                      <span style={{ ...sans, fontSize: 10, color: MUTED, whiteSpace: 'nowrap' }}>
+                        {[edu.start_date, edu.end_date].filter(Boolean).join(' – ')}
+                      </span>
+                      {edu.location && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.location}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Certifications */}
+      {certs.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+            <CertGroups certs={certs} spacers={spacers}
+              header={
+                <div style={{ borderBottom: `0.5px solid ${NAVY}`, paddingBottom: 3, marginBottom: 8, marginTop: 2 }}>
+                  <span style={{ ...sans, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: NAVY }}>
+                    Certifications &amp; Training
+                  </span>
+                </div>
+              }
+              nameColor={CHARCOAL} issuerColor={MUTED} yearColor={MUTED} fontSize={11} />
+          </div>
+        </div>
+      )}
+
+      {isEmpty && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingBottom: 80 }}>
+          <p style={{ ...sans, fontSize: 12.2, color: '#d1d5db' }}>Fill in your details on the left →</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Theme registry ─────────────────────────────────────────────────────────────
+
+export const THEMES = {
+  classic:    { label: 'Classic',    description: 'Traditional & balanced',      accent: '#94a3b8', body: null },
+  modern:     { label: 'Modern',     description: 'Bold with indigo accents',    accent: '#6366f1', body: null },
+  executive:  { label: 'Executive',  description: 'Dark header, sharp look',     accent: '#1e293b', body: null },
+  minimal:    { label: 'Minimal',    description: 'Ultra-clean, whitespace',     accent: '#e2e8f0', body: null },
+  leadership: { label: 'Leadership', description: 'ATS-optimized, senior roles', accent: '#1E3A8A', body: null },
+  compact:    { label: 'Compact',    description: 'Top 3 full · rest condensed', accent: '#1E3A8A', body: null },
+};
+// body refs set after declarations to avoid hoisting issues
+THEMES.classic.body    = ClassicBody;
+THEMES.modern.body     = ModernBody;
+THEMES.executive.body  = ExecutiveBody;
+THEMES.minimal.body    = MinimalBody;
+THEMES.leadership.body = LeadershipBody;
+THEMES.compact.body    = CompactBody;
+
+export function getThemeBody(name) {
+  return THEMES[name]?.body ?? ClassicBody;
+}

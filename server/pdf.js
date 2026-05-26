@@ -1,0 +1,956 @@
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+// ── Locate system Chrome ──────────────────────────────────────────────────────
+
+function findChrome() {
+  // macOS Spotlight (finds Chrome regardless of install location)
+  try {
+    const result = execSync(
+      'mdfind "kMDItemCFBundleIdentifier == \'com.google.Chrome\'"',
+      { timeout: 3000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    ).trim().split('\n')[0];
+    if (result) {
+      const bin = `${result}/Contents/MacOS/Google Chrome`;
+      if (fs.existsSync(bin)) return bin;
+    }
+  } catch {}
+
+  const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  ];
+  return candidates.find(p => fs.existsSync(p)) || null;
+}
+
+// ── HTML template ─────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Inline markdown → HTML. Escape HTML first so user angle brackets are safe,
+// then apply markdown patterns (*, ~, ` survive esc unchanged).
+function mdHtml(s) {
+  return esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,     '<em>$1</em>')
+    .replace(/~~([^~]+)~~/g,     '<del>$1</del>')
+    .replace(/`([^`]+)`/g,       '<span style="font-family:monospace;font-size:0.9em;background:#f1f5f9;padding:0 3px;border-radius:2px;">$1</span>');
+}
+
+function certYear(s) {
+  const m = String(s || '').match(/\b(20\d{2}|19\d{2})\b/);
+  return m ? m[1] : '';
+}
+
+function groupCerts(certs) {
+  const groups = [], map = {};
+  for (const c of (certs || [])) {
+    const g = (c.cert_group || '').trim();
+    if (!g) { groups.push({ label: '', items: [c] }); }
+    else if (map[g]) { map[g].items.push(c); }
+    else { const e = { label: g, items: [c] }; map[g] = e; groups.push(e); }
+  }
+  return groups;
+}
+
+function urlDisplay(s) {
+  return String(s || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+}
+
+const ACCENT_HEXES = [
+  '#6366f1', '#4f46e5', '#e0e7ff', '#eef2ff', '#c7d2fe', '#a5b4fc',
+  '#1e293b', '#0f172a', '#334155',
+  '#94a3b8', '#cbd5e1', '#e2e8f0',
+];
+
+function clampScale(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(1.18, Math.max(0.88, n)) : 1;
+}
+
+function tint(hex, amount) {
+  const raw = String(hex || '').replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(raw)) return hex;
+  const target = amount >= 0 ? 255 : 0;
+  const mix = Math.abs(amount);
+  const parts = [0, 2, 4].map(i => parseInt(raw.slice(i, i + 2), 16));
+  return `#${parts.map(c => Math.round(c + (target - c) * mix).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function mapAccentColor(color, accent) {
+  if (!accent) return color;
+  const lower = String(color).toLowerCase();
+  if (['#e0e7ff', '#eef2ff', '#c7d2fe', '#e2e8f0'].includes(lower)) return tint(accent, 0.86);
+  if (['#a5b4fc', '#94a3b8', '#cbd5e1'].includes(lower)) return tint(accent, 0.45);
+  return accent;
+}
+
+function applyResumeAppearance(html, resume) {
+  const scale = clampScale(resume.font_scale);
+  const accent = String(resume.accent_color || '').trim();
+  let next = html.replace(/font-size:\s*([0-9.]+)px/g, (_, size) => {
+    const scaled = Math.round(Number(size) * scale * 10) / 10;
+    return `font-size:${scaled}px`;
+  });
+  if (accent) {
+    ACCENT_HEXES.forEach(hex => {
+      next = next.replace(new RegExp(hex, 'ig'), mapAccentColor(hex, accent));
+    });
+  }
+  return next;
+}
+
+function sectionHeader(title) {
+  return `
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;margin-top:2px;">
+      <span style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.13em;color:#94a3b8;white-space:nowrap;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(title)}</span>
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+    </div>`;
+}
+
+function dateSpan(start, end, current) {
+  const parts = [start, current ? 'Present' : end].filter(Boolean);
+  return parts.length ? `<span style="font-size:10.2px;color:#94a3b8;white-space:nowrap;flex-shrink:0;margin-left:12px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(parts.join(' – '))}</span>` : '';
+}
+
+function bulletList(items, fontSize = 11.8) {
+  const filled = (items || []).filter(Boolean);
+  if (!filled.length) return '';
+  return `<ul style="margin-top:5px;list-style:none;padding:0;display:flex;flex-direction:column;gap:3px;">
+    ${filled.map(b => `
+      <li style="display:flex;align-items:flex-start;gap:7px;font-size:${fontSize}px;line-height:1.56;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        <span style="flex-shrink:0;color:#94a3b8;font-size:11px;line-height:1.56;">&#8226;</span>
+        <span>${mdHtml(b)}</span>
+      </li>`).join('')}
+  </ul>`;
+}
+
+// ── Theme-specific helpers ────────────────────────────────────────────────────
+
+function modernSection(title, content) {
+  return `<div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;">
+      <div style="width:3px;height:14px;background:#6366f1;border-radius:2px;flex-shrink:0;"></div>
+      <span style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.18em;color:#6366f1;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(title)}</span>
+      <div style="flex:1;height:1px;background:#e0e7ff;"></div>
+    </div>${content}</div>`;
+}
+
+function execSection(title, content) {
+  return `<div style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;">
+      <span style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.18em;color:#1e293b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(title)}</span>
+      <div style="flex:1;height:1.5px;background:#1e293b;opacity:0.15;"></div>
+    </div>${content}</div>`;
+}
+
+function minimalSection(title, content) {
+  return `<div style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+      <p style="font-size:8.4px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;color:#334155;margin:0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(title)}</p>
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+    </div>
+    ${content}</div>`;
+}
+
+function bulletListDash(items, fontSize = 11.8) {
+  const filled = (items || []).filter(Boolean);
+  if (!filled.length) return '';
+  return `<ul style="margin-top:5px;list-style:none;padding:0;display:flex;flex-direction:column;gap:5px;">
+    ${filled.map(b => `<li style="display:flex;gap:7px;font-size:${fontSize}px;line-height:1.55;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;"><span style="flex-shrink:0;color:#94a3b8;margin-top:1px;line-height:1.55;font-size:10px;">—</span><span>${mdHtml(b)}</span></li>`).join('')}
+  </ul>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildResumeHtml(resume) {
+  let html;
+  switch (resume.template) {
+    case 'modern':     html = buildModernHtml(resume); break;
+    case 'executive':  html = buildExecutiveHtml(resume); break;
+    case 'minimal':    html = buildMinimalHtml(resume); break;
+    case 'leadership': html = buildLeadershipHtml(resume); break;
+    case 'compact':    html = buildCompactHtml(resume); break;
+    default:           html = buildClassicHtml(resume);
+  }
+  return applyResumeAppearance(html, resume);
+}
+
+function wrap(body, extraCss = '') {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<style>* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:Aptos,'Segoe UI',Arial,sans-serif; font-size:12.2px; color:#1e293b; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+@page { margin:0.45in; size:Letter; } ${extraCss}</style></head><body>${body}</body></html>`;
+}
+
+function expRows(exps, opts = {}) {
+  return exps.map(e => `
+    <div style="margin-bottom:12px;page-break-inside:avoid;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:${opts.titleFirst?'12':'12.2'}px;font-weight:700;color:${opts.companyColor||'#1e293b'};font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(opts.titleFirst ? e.title : e.company)}</div>
+          <div style="font-size:${opts.titleItalic?'11.8':'11.2'}px;color:${opts.titleColor||'#64748b'};font-style:${opts.titleItalic?'italic':'normal'};font-weight:${opts.titleBold?'500':'400'};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+            ${esc(opts.titleFirst ? [e.company, e.location].filter(Boolean).join(' · ') : [e.title, e.location].filter(Boolean).join(' · '))}
+          </div>
+        </div>
+        ${dateSpan(e.start_date, e.end_date, e.current_job)}
+      </div>
+      ${e.note ? `<p style="font-size:11px;font-style:italic;color:#64748b;font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.5;margin:4px 0 3px;">${mdHtml(e.note)}</p>` : ''}
+      ${opts.dash ? bulletListDash(e.bullets) : bulletList(e.bullets)}
+    </div>`).join('');
+}
+
+function eduRows(edus, opts = {}) {
+  return edus.map(e => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;page-break-inside:avoid;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.2px;font-weight:700;color:${opts.schoolColor||'#1e293b'};font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.school)}</div>
+        <div style="font-size:${opts.bold?'11.2':'11.8'}px;color:${opts.degreeColor||'#64748b'};font-weight:${opts.bold?'500':'400'};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+          ${esc([e.degree, e.field].filter(Boolean).join(', '))}${e.gpa ? `<span style="color:#94a3b8;margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}
+        </div>
+        ${e.details ? `<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px;">${esc(e.details)}</div>` : ''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+        ${dateSpan(e.start_date, e.end_date)}
+        ${e.location ? `<div style="font-size:10.2px;color:#94a3b8;margin-top:2px;">${esc(e.location)}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function skillRows(skls, opts = {}) {
+  if (opts.chips) {
+    return `<div style="display:flex;flex-direction:column;gap:6px;">${skls.map(s => `
+      <div style="display:flex;align-items:flex-start;gap:7px;">
+        ${s.category ? `<span style="font-size:11px;font-weight:700;color:#374151;min-width:90px;flex-shrink:0;font-family:Aptos,'Segoe UI',Arial,sans-serif;padding-top:1px;">${esc(s.category)}</span>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:3px 6px;">${(s.items||[]).map(item => `<span style="font-size:10.2px;background:#eef2ff;color:#4f46e5;padding:1px 7px;border-radius:99px;border:1px solid #c7d2fe;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(item)}</span>`).join('')}</div>
+      </div>`).join('')}</div>`;
+  }
+  if (opts.dots) {
+    return `<div style="display:flex;flex-direction:column;gap:5px;">${skls.map(s => `
+      <div style="display:grid;grid-template-columns:108px 1fr;column-gap:10px;align-items:baseline;line-height:1.42;">
+        ${s.category ? `<span style="font-size:10px;font-weight:700;color:#334155;min-width:0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(s.category)}</span>` : '<span></span>'}
+        <span style="font-size:11.2px;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc((s.items||[]).join('  ·  '))}</span>
+      </div>`).join('')}</div>`;
+  }
+  return `<div style="display:flex;flex-direction:column;gap:5px;">${skls.map(s => `
+    <div style="display:flex;gap:7px;font-size:11.8px;">
+      ${s.category ? `<span style="font-weight:${opts.boldCat?'700':'600'};color:${opts.catColor||'#374151'};min-width:88px;flex-shrink:0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(s.category)}</span>` : ''}
+      <span style="color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc((s.items||[]).join(', '))}</span>
+    </div>`).join('')}</div>`;
+}
+
+function projRows(pros, opts = {}) {
+  const nameColor = opts.nameColor || '#1e293b';
+  const descColor = opts.descColor || '#475569';
+  const fontSize = opts.fontSize || 11.5;
+  const lineHeight = opts.lineHeight || 1.5;
+  const marginBottom = opts.marginBottom ?? 8;
+  const F = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+  return pros.map(proj => `
+    <p style="font-size:${fontSize}px;line-height:${lineHeight};color:${descColor};${F}margin:0 0 ${marginBottom}px;page-break-inside:avoid;"><strong style="color:${nameColor};">${esc(proj.name)}</strong>${proj.description ? ` ${mdHtml(proj.description)}` : ''}</p>`).join('');
+}
+
+function certRows(certs, opts = {}) {
+  const nameColor = opts.nameColor || '#1e293b';
+  const metaColor = opts.metaColor || '#64748b';
+  const F = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+  return groupCerts(certs).map(grp => {
+    const inline = grp.items.map((c, ci) => {
+      const year = certYear(c.issued_date || c.expiry_date);
+      return `${ci > 0 ? `<span style="color:#94a3b8;padding:0 5px;">—</span>` : ''}${esc(c.name)}${c.issuer ? `<span style="color:${metaColor};"> · ${esc(c.issuer)}</span>` : ''}${year ? `<span style="color:#94a3b8;"> · ${esc(year)}</span>` : ''}`;
+    }).join('');
+    return `<div style="font-size:11.5px;line-height:1.5;color:${nameColor};${F}margin-bottom:4px;page-break-inside:avoid;">${grp.label ? `<strong>${esc(grp.label)}: </strong>` : ''}${inline}</div>`;
+  }).join('');
+}
+
+// ── Classic ───────────────────────────────────────────────────────────────────
+
+function buildClassicHtml(resume) {
+  const p    = resume.personal       || {};
+  const his  = resume.highlights     || [];
+  const exps = resume.experiences    || [];
+  const edus = resume.education      || [];
+  const skls = resume.skills         || [];
+  const pros = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  // Contact row
+  const contactItems = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website    && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin   && urlDisplay(p.linkedin),
+    p.github     && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactItems.length
+    ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:5px 14px;font-size:10.2px;color:#64748b;margin-bottom:12px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        ${contactItems.map((item, i) => `${i > 0 ? '<span style="color:#cbd5e1;">&middot;</span>' : ''}<span>${esc(item)}</span>`).join('')}
+      </div>`
+    : '';
+
+  const summaryHtml = p.summary
+    ? `<div style="margin-bottom:14px;">
+        ${sectionHeader('Summary')}
+        <p style="font-size:12.2px;line-height:1.56;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>
+      </div>`
+    : '';
+
+  const highlightsHtml = his.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Career Highlights')}
+      ${bulletList(his.map(h => h.text), 12.2)}
+    </div>` : '';
+
+  const experienceHtml = exps.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Experience')}
+      ${exps.map(e => `
+        <div style="margin-bottom:12px;page-break-inside:avoid;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12.2px;font-weight:700;color:#1e293b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.company)}</div>
+              <div style="font-size:11.8px;color:#64748b;font-style:italic;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+                ${esc([e.title, e.location].filter(Boolean).join(' · '))}
+              </div>
+            </div>
+            ${dateSpan(e.start_date, e.end_date, e.current_job)}
+          </div>
+          ${e.note ? `<p style="font-size:11px;font-style:italic;color:#64748b;font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.5;margin:4px 0 3px;">${mdHtml(e.note)}</p>` : ''}
+          ${bulletList(e.bullets)}
+        </div>`).join('')}
+    </div>` : '';
+
+  const educationHtml = edus.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Education')}
+      ${edus.map(e => `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;page-break-inside:avoid;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.2px;font-weight:700;color:#1e293b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.school)}</div>
+            <div style="font-size:11.8px;color:#64748b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+              ${esc([e.degree, e.field].filter(Boolean).join(', '))}
+              ${e.gpa ? `<span style="color:#94a3b8;margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}
+            </div>
+            ${e.details ? `<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px;">${esc(e.details)}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+            ${dateSpan(e.start_date, e.end_date)}
+            ${e.location ? `<div style="font-size:10.2px;color:#94a3b8;margin-top:2px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.location)}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const skillsHtml = skls.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Skills')}
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        ${skls.map(s => `
+          <div style="display:flex;gap:7px;font-size:11.8px;">
+            ${s.category ? `<span style="font-weight:600;color:#374151;min-width:88px;flex-shrink:0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(s.category)}</span>` : ''}
+            <span style="color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc((s.items || []).join(', '))}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const projectsHtml = pros.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Notable Projects')}
+      ${projRows(pros)}
+    </div>` : '';
+
+  const certsHtml = certs.length ? `
+    <div style="margin-bottom:14px;">
+      ${sectionHeader('Certifications & Training')}
+      ${certRows(certs)}
+    </div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Aptos, 'Segoe UI', Arial, sans-serif;
+    font-size: 11.8px;
+    color: #1e293b;
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page { margin: 0.45in; size: Letter; }
+</style>
+</head>
+<body>
+  <div style="text-align:center;margin-bottom:8px;">
+    <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#0f172a;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+      ${esc(p.full_name || '')}
+    </h1>
+    ${p.tagline ? `<p style="margin-top:5px;font-size:12.2px;color:#64748b;letter-spacing:0.02em;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="margin-top:3px;font-size:11px;color:#94a3b8;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+  </div>
+  ${contactHtml}
+  ${summaryHtml}
+  ${highlightsHtml}
+  ${educationHtml}
+  ${skillsHtml}
+  ${experienceHtml}
+  ${projectsHtml}
+  ${certsHtml}
+</body>
+</html>`;
+}
+
+// ── Modern ────────────────────────────────────────────────────────────────────
+
+function buildModernHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+  const recent = exps.slice(0, 3);
+  const prior  = exps.slice(3);
+
+  const contactItems = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website  && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactItems.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:5px 14px;font-size:10.2px;color:#64748b;margin-top:5px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        ${contactItems.map((item, i) => `${i > 0 ? '<span style="color:#a5b4fc;">&middot;</span>' : ''}<span>${esc(item)}</span>`).join('')}
+      </div>`
+    : '';
+
+  const summaryHtml = p.summary
+    ? modernSection('Summary', `<p style="font-size:12.2px;line-height:1.56;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>`)
+    : '';
+
+  const highlightsHtml = his.length
+    ? modernSection('Career Highlights', bulletList(his.map(h => h.text), 12.2))
+    : '';
+
+  const experienceHtml = exps.length
+    ? modernSection('Experience', expRows(exps, { titleItalic: true, titleColor: '#6366f1' }))
+    : '';
+
+  const educationHtml = edus.length
+    ? modernSection('Education', eduRows(edus))
+    : '';
+
+  const skillsHtml = skls.length
+    ? modernSection('Skills', skillRows(skls, { chips: true }))
+    : '';
+
+  const projectsHtml = pros.length
+    ? modernSection('Notable Projects', projRows(pros, { nameColor: '#4f46e5' }))
+    : '';
+
+  const certsHtml = certs.length
+    ? modernSection('Certifications & Training', certRows(certs, { nameColor: '#1e293b', metaColor: '#6366f1' }))
+    : '';
+
+  const body = `
+  <div style="margin-bottom:14px;">
+    <h1 style="font-size:23px;font-weight:800;letter-spacing:-0.02em;color:#0f172a;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.full_name || '')}</h1>
+    ${p.tagline ? `<p style="margin-top:5px;font-size:12.2px;color:#6366f1;font-weight:500;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="margin-top:2px;font-size:11px;color:#94a3b8;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactHtml}
+  </div>
+  ${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${experienceHtml}${projectsHtml}${certsHtml}`;
+
+  return wrap(body);
+}
+
+// ── Executive ─────────────────────────────────────────────────────────────────
+
+function buildExecutiveHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactItems = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website  && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactItems.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:5px 18px;font-size:10.2px;color:#94a3b8;margin-top:5px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        ${contactItems.map((item, i) => `${i > 0 ? '<span style="color:#334155;">&middot;</span>' : ''}<span>${esc(item)}</span>`).join('')}
+      </div>`
+    : '';
+
+  const summaryHtml = p.summary
+    ? execSection('Summary', `<p style="font-size:12.2px;line-height:1.56;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>`)
+    : '';
+
+  const highlightsHtml = his.length
+    ? execSection('Career Highlights', bulletList(his.map(h => h.text), 12.2))
+    : '';
+
+  const experienceHtml = exps.length
+    ? execSection('Experience', expRows(exps, { titleBold: true, titleColor: '#475569' }))
+    : '';
+
+  const educationHtml = edus.length
+    ? execSection('Education', eduRows(edus, { bold: true, schoolColor: '#1e293b' }))
+    : '';
+
+  const skillsHtml = skls.length
+    ? execSection('Skills', skillRows(skls, { boldCat: true, catColor: '#1e293b' }))
+    : '';
+
+  const projectsHtml = pros.length
+    ? execSection('Notable Projects', projRows(pros))
+    : '';
+
+  const certsHtml = certs.length
+    ? execSection('Certifications & Training', certRows(certs))
+    : '';
+
+  const extraCss = `
+    .exec-header { background:#1e293b; margin:-0.45in -0.45in 0; padding:0.45in 0.45in 18px; }
+  `;
+
+  const body = `
+  <div class="exec-header">
+    <h1 style="font-size:23px;font-weight:800;letter-spacing:-0.01em;color:#f8fafc;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.full_name || '')}</h1>
+    ${p.tagline ? `<p style="margin-top:5px;font-size:12.2px;color:#94a3b8;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="margin-top:2px;font-size:11px;color:#64748b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactHtml}
+  </div>
+  <div style="margin-top:18px;">
+    ${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${experienceHtml}${projectsHtml}${certsHtml}
+  </div>`;
+
+  return wrap(body, extraCss);
+}
+
+// ── Minimal ───────────────────────────────────────────────────────────────────
+
+function buildMinimalHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactItems = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website  && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactItems.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10.2px;color:#475569;margin-top:6px;line-height:1.35;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        ${contactItems.map((item, i) => `${i > 0 ? '<span style="color:#e2e8f0;">&middot;</span>' : ''}<span>${esc(item)}</span>`).join('')}
+      </div>`
+    : '';
+
+  const summaryHtml = p.summary
+    ? minimalSection('Profile', `<p style="font-size:11.8px;line-height:1.48;color:#334155;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>`)
+    : '';
+
+  const highlightsHtml = his.length
+    ? minimalSection('Career Highlights', bulletListDash(his.map(h => h.text), 12.2))
+    : '';
+
+  const experienceHtml = exps.length
+    ? minimalSection('Experience', expRows(exps, { dash: true, titleFirst: true, companyColor: '#0f172a', titleColor: '#64748b', titleBold: true }))
+    : '';
+
+  const educationHtml = edus.length
+    ? minimalSection('Education', eduRows(edus, { degreeColor: '#64748b' }))
+    : '';
+
+  const skillsHtml = skls.length
+    ? minimalSection('Skills', skillRows(skls, { dots: true }))
+    : '';
+
+  const projectsHtml = pros.length
+    ? minimalSection('Notable Projects', projRows(pros, { nameColor: '#0f172a', descColor: '#475569', fontSize: 11.2, lineHeight: 1.45, marginBottom: 8 }))
+    : '';
+
+  const certsHtml = certs.length
+    ? minimalSection('Certifications', certRows(certs, { nameColor: '#0f172a', metaColor: '#64748b' }))
+    : '';
+
+  const body = `
+  <div style="margin-bottom:13px;">
+    <h1 style="font-size:23px;font-weight:700;letter-spacing:-0.01em;line-height:1.12;color:#0f172a;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.full_name || '')}</h1>
+    ${p.tagline ? `<p style="margin-top:4px;font-size:12px;font-weight:600;color:#334155;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="margin-top:2px;font-size:10.8px;color:#64748b;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    <div style="height:1px;background:#cbd5e1;margin:9px 0 6px;"></div>
+    ${contactHtml}
+  </div>
+  ${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${experienceHtml}${projectsHtml}${certsHtml}`;
+
+  return wrap(body);
+}
+
+// ── Leadership ────────────────────────────────────────────────────────────────
+
+const LDR_NAVY     = '#1E3A8A';
+const LDR_CHARCOAL = '#1F2937';
+const LDR_MUTED    = '#6B7280';
+
+function ldrSectionHeader(title) {
+  return `
+    <div style="border-bottom:0.5px solid ${LDR_NAVY};padding-bottom:3px;margin-bottom:9px;margin-top:2px;">
+      <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${LDR_NAVY};font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(title)}</span>
+    </div>`;
+}
+
+function compactBullets(items, max = 4) {
+  return (items || []).filter(Boolean).slice(0, max);
+}
+
+function ldrBulletList(items, opts = {}) {
+  const fontSize = opts.fontSize || 10.5;
+  const lineHeight = opts.lineHeight || 1.35;
+  const gap = opts.gap ?? 3;
+  const filled = (items || []).filter(Boolean);
+  if (!filled.length) return '';
+  return `<ul style="margin-top:4px;list-style:none;padding:0;display:flex;flex-direction:column;gap:${gap}px;">
+    ${filled.map(b => `
+      <li style="display:flex;align-items:flex-start;gap:8px;font-size:${fontSize}px;line-height:${lineHeight};color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        <span style="flex-shrink:0;color:#6B7280;font-size:10px;line-height:${lineHeight};">&#8226;</span>
+        <span>${mdHtml(b)}</span>
+      </li>`).join('')}
+  </ul>`;
+}
+
+function buildLeadershipHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+  const recent = exps.slice(0, 3);
+  const prior  = exps.slice(3);
+
+  // Full URLs, pipe-separated — ATS-safe
+  const contactParts = [
+    p.email, p.phone, p.location,
+    p.website && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const summaryHtml = p.summary ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Summary')}
+      <p style="font-size:10.5px;line-height:1.45;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;">${mdHtml(p.summary)}</p>
+    </div>` : '';
+
+  const highlightsHtml = his.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Career Highlights')}
+      ${ldrBulletList(his.map(h => h.text))}
+    </div>` : '';
+
+  const skillsHtml = skls.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Core Competencies')}
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        ${skls.map(s => `
+          <div style="display:grid;grid-template-columns:128px 1fr;column-gap:8px;align-items:baseline;font-size:10.2px;line-height:1.32;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+            ${s.category ? `<span style="font-weight:700;min-width:0;">${esc(s.category)}:</span>` : '<span></span>'}
+            <span>${esc((s.items || []).join(', '))}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const experienceHtml = recent.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Professional Experience')}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${recent.map(e => `
+          <div style="break-inside:auto;page-break-inside:auto;">
+            <p style="font-size:11px;margin:0;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+              <strong style="font-weight:700;">${esc(e.title)}</strong>
+              ${e.title && e.company ? `<span style="color:${LDR_MUTED};margin:0 5px;">·</span>` : ''}
+              <span style="font-weight:400;">${esc(e.company)}</span>
+            </p>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:1px;">
+              <span style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.location || '')}</span>
+              <span style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;flex-shrink:0;">
+                ${esc([e.start_date, e.current_job ? 'Present' : e.end_date].filter(Boolean).join(' – '))}
+              </span>
+            </div>
+            ${e.note ? `<p style="font-size:11px;font-style:italic;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.5;margin:4px 0 3px;">${mdHtml(e.note)}</p>` : ''}
+            ${ldrBulletList(compactBullets(e.bullets))}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const priorExpHtml = prior.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Earlier Career')}
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+        ${prior.map(e => `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;page-break-inside:avoid;">
+            <span style="font-size:10.5px;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.32;">
+              <strong style="font-weight:600;">${esc(e.title)}</strong>
+              ${e.company ? `<span style="color:${LDR_MUTED};"> · ${esc(e.company)}</span>` : ''}
+              ${e.location ? `<span style="color:${LDR_MUTED};">, ${esc(e.location)}</span>` : ''}
+            </span>
+            <span style="font-size:10px;color:${LDR_MUTED};flex-shrink:0;padding-left:12px;white-space:nowrap;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+              ${esc([e.start_date, e.current_job ? 'Present' : e.end_date].filter(Boolean).join(' – '))}
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const projectsHtml = pros.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Notable Projects')}
+      <div style="margin-top:4px;">${projRows(pros, { nameColor: LDR_CHARCOAL, descColor: LDR_CHARCOAL, fontSize: 10, lineHeight: 1.28, marginBottom: 4 })}</div>
+    </div>` : '';
+
+  const educationHtml = edus.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Education')}
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${edus.map(e => `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;page-break-inside:avoid;">
+            <div>
+              <p style="font-size:11px;font-weight:700;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;">${esc(e.school)}</p>
+              <p style="font-size:10.5px;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:1px 0 0;">
+                ${esc([e.degree, e.field].filter(Boolean).join(', '))}
+                ${e.gpa ? `<span style="color:${LDR_MUTED};margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}
+              </p>
+              ${e.details ? `<p style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:2px 0 0;">${esc(e.details)}</p>` : ''}
+            </div>
+            <div style="text-align:right;flex-shrink:0;padding-left:12px;">
+              <span style="font-size:10px;color:${LDR_MUTED};white-space:nowrap;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+                ${esc([e.start_date, e.end_date].filter(Boolean).join(' – '))}
+              </span>
+              ${e.location ? `<p style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:2px 0 0;">${esc(e.location)}</p>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const certsHtml = certs.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Certifications & Training')}
+      <div style="margin-top:4px;">${certRows(certs, { nameColor: LDR_CHARCOAL, metaColor: LDR_MUTED })}</div>
+    </div>` : '';
+
+  const body = `
+  <div style="margin-bottom:16px;">
+    <h1 style="font-size:22px;font-weight:700;color:${LDR_NAVY};margin:0;letter-spacing:-0.01em;line-height:1.2;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.full_name || '')}</h1>
+    ${p.tagline ? `<p style="font-size:12px;font-weight:500;color:${LDR_CHARCOAL};margin:4px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="font-size:11px;color:${LDR_MUTED};margin:2px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactParts.length ? `<p style="font-size:10px;color:${LDR_CHARCOAL};margin:5px 0 0;line-height:1.35;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(contactParts.join('  |  '))}</p>` : ''}
+  </div>
+  ${summaryHtml}${highlightsHtml}${skillsHtml}${experienceHtml}${priorExpHtml}${projectsHtml}${educationHtml}${certsHtml}`;
+
+  return wrap(body);
+}
+
+// ── Compact ───────────────────────────────────────────────────────────────────
+
+function buildCompactHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  // First 3 (display order = most recent first) get full detail; rest condensed
+  const recent = exps.slice(0, 3);
+  const prior  = exps.slice(3);
+
+  const contactParts = [
+    p.email, p.phone, p.location,
+    p.website && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const summaryHtml = p.summary ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Summary')}
+      <p style="font-size:10.5px;line-height:1.45;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;">${mdHtml(p.summary)}</p>
+    </div>` : '';
+
+  const highlightsHtml = his.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Career Highlights')}
+      ${ldrBulletList(his.map(h => h.text))}
+    </div>` : '';
+
+  const skillsHtml = skls.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Core Competencies')}
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+        ${skls.map(s => `
+          <div style="display:grid;grid-template-columns:128px 1fr;column-gap:8px;align-items:baseline;font-size:10.2px;line-height:1.32;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+            ${s.category ? `<span style="font-weight:700;min-width:0;">${esc(s.category)}:</span>` : '<span></span>'}
+            <span>${esc((s.items || []).join(', '))}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const recentExpHtml = recent.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Professional Experience')}
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+        ${recent.map(e => `
+          <div style="break-inside:auto;page-break-inside:auto;">
+            <p style="font-size:11px;margin:0;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+              <strong style="font-weight:700;">${esc(e.title)}</strong>
+              ${e.title && e.company ? `<span style="color:${LDR_MUTED};margin:0 5px;">·</span>` : ''}
+              <span style="font-weight:400;">${esc(e.company)}</span>
+            </p>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:1px;">
+              <span style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.location || '')}</span>
+              <span style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;flex-shrink:0;">
+                ${esc([e.start_date, e.current_job ? 'Present' : e.end_date].filter(Boolean).join(' – '))}
+              </span>
+            </div>
+            ${e.note ? `<p style="font-size:11px;font-style:italic;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.5;margin:4px 0 3px;">${mdHtml(e.note)}</p>` : ''}
+            ${ldrBulletList(compactBullets(e.bullets), { fontSize: 10.2, lineHeight: 1.3, gap: 2 })}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const priorExpHtml = prior.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Earlier Career')}
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+        ${prior.map(e => `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:10.5px;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;line-height:1.4;">
+              <strong style="font-weight:600;">${esc(e.title)}</strong>
+              ${e.company  ? `<span style="color:${LDR_MUTED};"> · ${esc(e.company)}</span>` : ''}
+              ${e.location ? `<span style="color:${LDR_MUTED};">, ${esc(e.location)}</span>` : ''}
+            </span>
+            <span style="font-size:10px;color:${LDR_MUTED};flex-shrink:0;padding-left:12px;white-space:nowrap;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+              ${esc([e.start_date, e.current_job ? 'Present' : e.end_date].filter(Boolean).join(' – '))}
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const projectsHtml = pros.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Notable Projects')}
+      <div style="margin-top:4px;">${projRows(pros, { nameColor: LDR_CHARCOAL, descColor: LDR_CHARCOAL, fontSize: 10, lineHeight: 1.28, marginBottom: 4 })}</div>
+    </div>` : '';
+
+  const educationHtml = edus.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Education')}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        ${edus.map(e => `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;page-break-inside:avoid;">
+            <div>
+              <p style="font-size:11px;font-weight:700;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;">${esc(e.school)}</p>
+              <p style="font-size:10.5px;color:${LDR_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:1px 0 0;">
+                ${esc([e.degree, e.field].filter(Boolean).join(', '))}
+                ${e.gpa ? `<span style="color:${LDR_MUTED};margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}
+              </p>
+              ${e.details ? `<p style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:2px 0 0;">${esc(e.details)}</p>` : ''}
+            </div>
+            <div style="text-align:right;flex-shrink:0;padding-left:12px;">
+              <span style="font-size:10px;color:${LDR_MUTED};white-space:nowrap;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+                ${esc([e.start_date, e.end_date].filter(Boolean).join(' – '))}
+              </span>
+              ${e.location ? `<p style="font-size:10px;color:${LDR_MUTED};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:2px 0 0;">${esc(e.location)}</p>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const certsHtml = certs.length ? `
+    <div style="margin-bottom:14px;">
+      ${ldrSectionHeader('Certifications & Training')}
+      <div style="margin-top:4px;">${certRows(certs, { nameColor: LDR_CHARCOAL, metaColor: LDR_MUTED })}</div>
+    </div>` : '';
+
+  const body = `
+  <div style="margin-bottom:16px;">
+    <h1 style="font-size:22px;font-weight:700;color:${LDR_NAVY};margin:0;letter-spacing:-0.01em;line-height:1.2;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.full_name || '')}</h1>
+    ${p.tagline  ? `<p style="font-size:12px;font-weight:500;color:${LDR_CHARCOAL};margin:4px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="font-size:11px;color:${LDR_MUTED};margin:2px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactParts.length ? `<p style="font-size:10px;color:${LDR_CHARCOAL};margin:5px 0 0;line-height:1.35;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(contactParts.join('  |  '))}</p>` : ''}
+  </div>
+  ${summaryHtml}${highlightsHtml}${skillsHtml}${recentExpHtml}${priorExpHtml}${projectsHtml}${educationHtml}${certsHtml}`;
+
+  return wrap(body);
+}
+
+// ── PDF generation ────────────────────────────────────────────────────────────
+
+async function generatePdf(html) {
+  const chromePath = findChrome();
+  if (!chromePath) {
+    const err = new Error('Chrome not found. Install Google Chrome and restart the server.');
+    err.code = 'CHROME_NOT_FOUND';
+    throw err;
+  }
+
+  const puppeteer = require('puppeteer-core');
+  const browser = await puppeteer.launch({
+    executablePath: chromePath,
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    return await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      margin: { top: '0.45in', right: '0.45in', bottom: '0.45in', left: '0.45in' },
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { buildResumeHtml, generatePdf, findChrome };
