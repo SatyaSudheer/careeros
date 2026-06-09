@@ -270,6 +270,7 @@ try { db.exec("ALTER TABLE personal_info ADD COLUMN subtitle TEXT DEFAULT ''"); 
 try { db.exec("ALTER TABLE resumes ADD COLUMN is_profile INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE resumes ADD COLUMN font_scale REAL DEFAULT 1"); } catch {}
 try { db.exec("ALTER TABLE resumes ADD COLUMN accent_color TEXT DEFAULT ''"); } catch {}
+try { db.exec("ALTER TABLE resumes ADD COLUMN compact_mode INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE certifications ADD COLUMN cert_group TEXT DEFAULT ''"); } catch {}
 try { db.exec("ALTER TABLE profile_certifications ADD COLUMN cert_group TEXT DEFAULT ''"); } catch {}
 try { db.exec("ALTER TABLE experiences ADD COLUMN note TEXT DEFAULT ''"); } catch {}

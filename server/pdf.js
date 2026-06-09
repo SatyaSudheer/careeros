@@ -510,8 +510,328 @@ function buildFolioHtml(resume) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EDITORIAL — serif, creative / media roles
+// ─────────────────────────────────────────────────────────────────────────────
 
-function buildResumeHtml(resume) {
+const ED_SERIF = "font-family:Georgia,'Garamond','Times New Roman',serif;";
+const ED_COLOR = '#4A5568';
+
+function editorialSection(title, content) {
+  return `<div style="margin-bottom:14px;">
+    <div style="padding-left:10px;border-left:3px solid ${ED_COLOR};margin-bottom:10px;margin-top:2px;">
+      <span style="${ED_SERIF}font-size:11.5px;font-weight:700;font-variant:small-caps;letter-spacing:0.08em;color:${ED_COLOR};">${esc(title)}</span>
+    </div>${content}</div>`;
+}
+
+function buildEditorialHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e2e8f0;">
+      <h1 style="${ED_SERIF}font-size:28px;font-weight:600;color:#0f172a;margin:0;line-height:1.15;letter-spacing:0.01em;">${esc(p.full_name || '')}</h1>
+      ${p.tagline  ? `<p style="${ED_SERIF}font-size:13px;font-style:italic;color:#64748b;margin:6px 0 0;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;font-size:10.5px;color:#64748b;margin:8px 0 0;${ED_SERIF}">
+        ${contactParts.map((part, i) => `${i > 0 ? '<span style="color:#cbd5e1;padding:0 8px;">|</span>' : ''}${esc(part)}`).join('')}
+      </div>` : ''}
+    </div>`;
+
+  const summaryBlock = p.summary ? editorialSection('Summary',
+    `<p style="${ED_SERIF}font-size:11.5px;line-height:1.62;color:#374151;">${mdHtml(p.summary)}</p>`) : '';
+
+  const highlightsBlock = his.length ? editorialSection('Career Highlights',
+    `<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:5px;">
+      ${his.map(h => `<li style="display:flex;align-items:flex-start;gap:8px;${ED_SERIF}font-size:11.5px;line-height:1.6;color:#374151;">
+        <span style="color:#94a3b8;flex-shrink:0;line-height:1.6;font-size:11px;">•</span><span>${mdHtml(h.text)}</span></li>`).join('')}
+    </ul>`) : '';
+
+  const expBlock = exps.length ? editorialSection('Experience',
+    exps.map(exp => `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <p style="${ED_SERIF}font-size:12.5px;font-weight:700;color:#0f172a;margin:0;">${esc(exp.company)}</p>
+            <p style="${ED_SERIF}font-size:11.5px;font-style:italic;color:${ED_COLOR};margin:1px 0 0;">${esc([exp.title, exp.location].filter(Boolean).join(' · '))}</p>
+          </div>
+          ${dateSpan(exp.start_date, exp.end_date, exp.current_job)}
+        </div>
+        ${exp.note ? `<p style="${ED_SERIF}font-size:11px;font-style:italic;color:#64748b;line-height:1.5;margin:3px 0 2px;">${esc(exp.note)}</p>` : ''}
+        ${bulletList(exp.bullets, 11.5)}
+      </div>`).join('')) : '';
+
+  const eduBlock = edus.length ? editorialSection('Education',
+    edus.map(edu => `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <p style="${ED_SERIF}font-size:12.5px;font-weight:700;color:#0f172a;margin:0;">${esc(edu.school)}</p>
+          <p style="${ED_SERIF}font-size:11.5px;font-style:italic;color:#64748b;margin:1px 0 0;">${esc([edu.degree, edu.field].filter(Boolean).join(', '))}${edu.gpa ? ` <span style="color:#94a3b8;">· GPA ${esc(edu.gpa)}</span>` : ''}</p>
+          ${edu.details ? `<p style="${ED_SERIF}font-size:11px;font-style:italic;color:#94a3b8;margin:2px 0 0;">${esc(edu.details)}</p>` : ''}
+        </div>
+        ${dateSpan(edu.start_date, edu.end_date)}
+      </div>`).join('')) : '';
+
+  const skillsBlock = skls.length ? editorialSection('Skills',
+    skls.map(s => `
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;">
+        ${s.category ? `<span style="${ED_SERIF}font-size:11.5px;font-weight:700;font-variant:small-caps;color:#0f172a;min-width:90px;flex-shrink:0;">${esc(s.category)}</span>` : ''}
+        <span style="${ED_SERIF}font-size:11.5px;color:#475569;">${esc((s.items || []).join(', '))}</span>
+      </div>`).join('')) : '';
+
+  const projBlock = pros.length ? editorialSection('Notable Projects',
+    pros.map(proj => `
+      <p style="${ED_SERIF}font-size:11.5px;line-height:1.55;margin:0 0 5px;">
+        <strong style="color:${ED_COLOR};">${esc(proj.name)}</strong>${proj.description ? ` — ${mdHtml(proj.description)}` : ''}
+      </p>`).join('')) : '';
+
+  const certGroups = groupCerts(certs);
+  const certBlock = certGroups.length ? editorialSection('Certifications &amp; Training',
+    certGroups.map(g => `
+      ${g.label ? `<p style="${ED_SERIF}font-size:10.5px;font-weight:700;font-variant:small-caps;color:${ED_COLOR};margin-bottom:3px;">${esc(g.label)}</p>` : ''}
+      ${g.items.map(c => `<p style="${ED_SERIF}font-size:11.5px;color:#374151;line-height:1.5;margin-bottom:3px;">
+        <strong>${esc(c.name)}</strong>${c.issuer ? ` · <span style="color:${ED_COLOR};">${esc(c.issuer)}</span>` : ''}${certYear(c.date) ? ` <span style="color:#94a3b8;">${certYear(c.date)}</span>` : ''}
+      </p>`).join('')}`).join('')) : '';
+
+  const body = `${header}${summaryBlock}${highlightsBlock}${expBlock}${eduBlock}${skillsBlock}${projBlock}${certBlock}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TECHNICAL — engineering, data, devops, ML/AI
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TC_MONO  = "font-family:'Courier New',Consolas,Menlo,Monaco,monospace;";
+const TC_BLUE  = '#1D4ED8';
+
+function technicalSection(title, content) {
+  return `<div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:2px;border-bottom:2px solid #BFDBFE;padding-bottom:4px;">
+      <span style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:${TC_BLUE};">${esc(title)}</span>
+    </div>${content}</div>`;
+}
+
+function buildTechnicalHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="margin-bottom:16px;">
+      <h1 style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:26px;font-weight:800;color:#0f172a;margin:0;line-height:1.15;letter-spacing:-0.01em;">${esc(p.full_name || '')}</h1>
+      ${p.tagline  ? `<p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:12.5px;font-weight:500;color:${TC_BLUE};margin:4px 0 0;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="${TC_MONO}font-size:10.5px;color:#64748b;margin:3px 0 0;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<div style="display:flex;flex-wrap:wrap;font-size:10.5px;color:#475569;margin:7px 0 0;${TC_MONO}">
+        ${contactParts.map((part, i) => `${i > 0 ? '<span style="color:#BFDBFE;padding:0 8px;">·</span>' : ''}${esc(part)}`).join('')}
+      </div>` : ''}
+      <div style="height:2px;background:#BFDBFE;margin-top:12px;"></div>
+    </div>`;
+
+  const summaryBlock = p.summary ? technicalSection('Summary',
+    `<p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:11.5px;line-height:1.56;color:#374151;">${mdHtml(p.summary)}</p>`) : '';
+
+  const skillsBlock = skls.length ? technicalSection('Technical Skills',
+    skls.map(s => `
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;">
+        ${s.category ? `<span style="${TC_MONO}font-size:10.5px;font-weight:700;color:${TC_BLUE};min-width:88px;flex-shrink:0;">${esc(s.category)}</span>` : ''}
+        <span style="${TC_MONO}font-size:10.5px;color:#334155;line-height:1.5;">${esc((s.items || []).join('  ·  '))}</span>
+      </div>`).join('')) : '';
+
+  const highlightsBlock = his.length ? technicalSection('Career Highlights',
+    `<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:4px;">
+      ${his.map(h => `<li style="display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.56;color:#374151;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        <span style="${TC_MONO}color:#BFDBFE;flex-shrink:0;line-height:1.6;font-size:10px;">&#9658;</span><span>${mdHtml(h.text)}</span></li>`).join('')}
+    </ul>`) : '';
+
+  const expBlock = exps.length ? technicalSection('Experience',
+    exps.map(exp => `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:12.5px;font-weight:700;color:#0f172a;margin:0;">${esc(exp.company)}</p>
+            <p style="${TC_MONO}font-size:10.5px;font-style:italic;color:#475569;margin:1px 0 0;">${esc([exp.title, exp.location].filter(Boolean).join(' · '))}</p>
+          </div>
+          ${dateSpan(exp.start_date, exp.end_date, exp.current_job)}
+        </div>
+        ${exp.note ? `<p style="font-size:11px;font-style:italic;color:#64748b;line-height:1.5;margin:3px 0 2px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(exp.note)}</p>` : ''}
+        ${bulletList(exp.bullets, 11.5)}
+      </div>`).join('')) : '';
+
+  const eduBlock = edus.length ? technicalSection('Education',
+    edus.map(edu => `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:12.5px;font-weight:700;color:#0f172a;margin:0;">${esc(edu.school)}</p>
+          <p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:11.5px;color:#64748b;margin:1px 0 0;">${esc([edu.degree, edu.field].filter(Boolean).join(', '))}${edu.gpa ? ` <span style="color:#94a3b8;">· GPA ${esc(edu.gpa)}</span>` : ''}</p>
+        </div>
+        ${dateSpan(edu.start_date, edu.end_date)}
+      </div>`).join('')) : '';
+
+  const projBlock = pros.length ? technicalSection('Notable Projects',
+    pros.map(proj => `
+      <p style="font-size:11.5px;line-height:1.5;margin:0 0 5px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        <strong style="${TC_MONO}font-size:11px;color:${TC_BLUE};">${esc(proj.name)}</strong>${proj.description ? ` — ${mdHtml(proj.description)}` : ''}
+      </p>`).join('')) : '';
+
+  const certGroups = groupCerts(certs);
+  const certBlock = certGroups.length ? technicalSection('Certifications &amp; Training',
+    certGroups.map(g => `
+      ${g.label ? `<p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:10.5px;font-weight:700;color:${TC_BLUE};margin-bottom:3px;">${esc(g.label)}</p>` : ''}
+      ${g.items.map(c => `<p style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:11.5px;color:#374151;line-height:1.5;margin-bottom:3px;">
+        <strong>${esc(c.name)}</strong>${c.issuer ? ` · <span style="${TC_MONO}font-size:10.5px;color:${TC_BLUE};">${esc(c.issuer)}</span>` : ''}${certYear(c.date) ? ` <span style="color:#94a3b8;">${certYear(c.date)}</span>` : ''}
+      </p>`).join('')}`).join('')) : '';
+
+  const body = `${header}${summaryBlock}${skillsBlock}${highlightsBlock}${expBlock}${eduBlock}${projBlock}${certBlock}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HERITAGE — classical, finance, law, consulting
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HG_SERIF = "font-family:Georgia,'Garamond','Times New Roman',serif;";
+const HG_BURG  = '#7C2D12';
+const HG_RULE  = '#9CA3AF';
+
+function heritageSection(title, content) {
+  return `<div style="margin:2px 0 18px;">
+    <div style="height:1px;background:${HG_RULE};"></div>
+    <div style="text-align:center;padding:4px 8px;">
+      <span style="${HG_SERIF}font-size:11.5px;font-weight:600;font-variant:small-caps;letter-spacing:0.12em;color:${HG_BURG};">${esc(title)}</span>
+    </div>
+    <div style="height:1px;background:${HG_RULE};"></div>
+    <div style="margin-top:8px;">${content}</div>
+  </div>`;
+}
+
+function buildHeritageHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="text-align:center;margin-bottom:22px;">
+      <h1 style="${HG_SERIF}font-size:30px;font-weight:600;color:#1C1917;margin:0;line-height:1.15;letter-spacing:0.02em;">${esc(p.full_name || '')}</h1>
+      ${p.tagline  ? `<p style="${HG_SERIF}font-size:12.5px;font-variant:small-caps;letter-spacing:0.1em;color:#57534E;margin:5px 0 0;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="${HG_SERIF}font-size:11px;font-style:italic;color:#78716C;margin:3px 0 0;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;font-size:10.5px;color:#57534E;margin:8px 0 0;${HG_SERIF}">
+        ${contactParts.map((part, i) => `${i > 0 ? `<span style="color:${HG_RULE};padding:0 8px;">·</span>` : ''}${esc(part)}`).join('')}
+      </div>` : ''}
+      <div style="margin:14px auto 0;max-width:420px;">
+        <div style="height:1px;background:${HG_RULE};"></div>
+        <div style="height:3px;"></div>
+        <div style="height:1px;background:${HG_RULE};"></div>
+      </div>
+    </div>`;
+
+  const summaryBlock = p.summary ? heritageSection('Summary',
+    `<p style="${HG_SERIF}font-size:12px;line-height:1.65;color:#1C1917;">${mdHtml(p.summary)}</p>`) : '';
+
+  const highlightsBlock = his.length ? heritageSection('Career Highlights',
+    `<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:5px;">
+      ${his.map(h => `<li style="display:flex;align-items:flex-start;gap:8px;${HG_SERIF}font-size:12px;line-height:1.65;color:#1C1917;">
+        <span style="color:${HG_BURG};flex-shrink:0;line-height:1.65;font-size:11px;">•</span><span>${mdHtml(h.text)}</span></li>`).join('')}
+    </ul>`) : '';
+
+  const expBlock = exps.length ? heritageSection('Experience',
+    exps.map(exp => `
+      <div style="margin-bottom:13px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <p style="${HG_SERIF}font-size:13px;font-weight:700;color:#1C1917;margin:0;">${esc(exp.company)}</p>
+            <p style="${HG_SERIF}font-size:12px;font-style:italic;color:#57534E;margin:1px 0 0;">${esc([exp.title, exp.location].filter(Boolean).join(' · '))}</p>
+          </div>
+          ${dateSpan(exp.start_date, exp.end_date, exp.current_job)}
+        </div>
+        ${exp.note ? `<p style="${HG_SERIF}font-size:11.5px;font-style:italic;color:#78716C;line-height:1.5;margin:3px 0 2px;">${esc(exp.note)}</p>` : ''}
+        ${bulletList(exp.bullets, 12)}
+      </div>`).join('')) : '';
+
+  const eduBlock = edus.length ? heritageSection('Education',
+    edus.map(edu => `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <p style="${HG_SERIF}font-size:13px;font-weight:700;color:#1C1917;margin:0;">${esc(edu.school)}</p>
+          <p style="${HG_SERIF}font-size:12px;font-style:italic;color:#57534E;margin:1px 0 0;">${esc([edu.degree, edu.field].filter(Boolean).join(', '))}${edu.gpa ? ` <span style="color:#94a3b8;">· GPA ${esc(edu.gpa)}</span>` : ''}</p>
+          ${edu.details ? `<p style="${HG_SERIF}font-size:11px;font-style:italic;color:#78716C;margin:2px 0 0;">${esc(edu.details)}</p>` : ''}
+        </div>
+        <div style="text-align:right;">
+          ${dateSpan(edu.start_date, edu.end_date)}
+          ${edu.location ? `<p style="font-size:10.2px;color:#94a3b8;margin:2px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(edu.location)}</p>` : ''}
+        </div>
+      </div>`).join('')) : '';
+
+  const skillsBlock = skls.length ? heritageSection('Skills',
+    skls.map(s => `
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:5px;">
+        ${s.category ? `<span style="${HG_SERIF}font-size:12px;font-weight:700;font-variant:small-caps;color:${HG_BURG};min-width:90px;flex-shrink:0;letter-spacing:0.06em;">${esc(s.category)}</span>` : ''}
+        <span style="${HG_SERIF}font-size:12px;color:#374151;">${esc((s.items || []).join(' · '))}</span>
+      </div>`).join('')) : '';
+
+  const projBlock = pros.length ? heritageSection('Notable Projects',
+    pros.map(proj => `
+      <p style="${HG_SERIF}font-size:12px;line-height:1.55;margin:0 0 6px;">
+        <strong style="color:${HG_BURG};">${esc(proj.name)}</strong>${proj.description ? ` — ${mdHtml(proj.description)}` : ''}
+      </p>`).join('')) : '';
+
+  const certGroups = groupCerts(certs);
+  const certBlock = certGroups.length ? heritageSection('Certifications &amp; Training',
+    certGroups.map(g => `
+      ${g.label ? `<p style="${HG_SERIF}font-size:11px;font-weight:700;font-variant:small-caps;color:${HG_BURG};margin-bottom:3px;letter-spacing:0.06em;">${esc(g.label)}</p>` : ''}
+      ${g.items.map(c => `<p style="${HG_SERIF}font-size:12px;color:#1C1917;line-height:1.5;margin-bottom:3px;">
+        <strong>${esc(c.name)}</strong>${c.issuer ? ` · <span style="color:#57534E;">${esc(c.issuer)}</span>` : ''}${certYear(c.date) ? ` <span style="color:#94a3b8;">${certYear(c.date)}</span>` : ''}
+      </p>`).join('')}`).join('')) : '';
+
+  const body = `${header}${summaryBlock}${highlightsBlock}${expBlock}${eduBlock}${skillsBlock}${projBlock}${certBlock}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function applyCompactMode(resume) {
+  if (!resume.compact_mode) return resume;
+  return {
+    ...resume,
+    experiences: (resume.experiences || []).map((exp, i) =>
+      i < 3
+        ? { ...exp, bullets: (exp.bullets || []).slice(0, 4) }
+        : { ...exp, bullets: [], note: null }
+    ),
+  };
+}
+
+function buildResumeHtml(resumeRaw) {
+  const resume = applyCompactMode(resumeRaw);
   let html;
   switch (resume.template) {
     case 'modern':     html = buildModernHtml(resume); break;
@@ -522,6 +842,9 @@ function buildResumeHtml(resume) {
     case 'luxe':       html = buildLuxeHtml(resume); break;
     case 'prestige':   html = buildPrestigeHtml(resume); break;
     case 'folio':      html = buildFolioHtml(resume); break;
+    case 'editorial':  html = buildEditorialHtml(resume); break;
+    case 'technical':  html = buildTechnicalHtml(resume); break;
+    case 'heritage':   html = buildHeritageHtml(resume); break;
     default:           html = buildClassicHtml(resume);
   }
   return applyResumeAppearance(html, resume);

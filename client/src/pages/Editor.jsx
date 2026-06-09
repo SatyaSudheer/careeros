@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X, ChevronDown, AlignJustify } from 'lucide-react';
 import { THEMES } from '../components/preview/themes.jsx';
 import { api } from '../api.js';
 import PersonalSection from '../components/editor/PersonalSection.jsx';
@@ -11,8 +11,6 @@ import SkillsSection from '../components/editor/SkillsSection.jsx';
 import ProjectsSection from '../components/editor/ProjectsSection.jsx';
 import CertificationsSection from '../components/editor/CertificationsSection.jsx';
 import ResumePreview from '../components/preview/ResumePreview.jsx';
-import CssThemeRenderer from '../components/preview/CssThemeRenderer.jsx';
-import ThemePicker from '../components/ThemePicker.jsx';
 import AtsScore from '../components/AtsScore.jsx';
 
 function SaveStatus({ state }) {
@@ -161,8 +159,6 @@ export default function Editor() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  // CSS theme engine — null means default inline-style renderer is active
-  const [cssTheme, setCssTheme] = useState(null);
 
   const load = useCallback(() =>
     api.resumes.get(id).then(setResume).finally(() => setLoading(false))
@@ -379,6 +375,26 @@ export default function Editor() {
                       })}
                     </div>
                   </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlignJustify className="h-3.5 w-3.5 text-slate-400" />
+                        <div>
+                          <p className="text-[11px] font-semibold text-slate-700 leading-tight">Compact mode</p>
+                          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Top 3 roles full · earlier roles condensed</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => updateStyle({ compact_mode: !resume.compact_mode })}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${resume.compact_mode ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                        role="switch"
+                        aria-checked={!!resume.compact_mode}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${resume.compact_mode ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -495,13 +511,8 @@ export default function Editor() {
         {/* Right panel: Preview */}
         <div className="flex-1 overflow-y-auto preview-scroll bg-[#E8ECF0]">
           <div className="mx-auto py-8 px-6" style={{ maxWidth: 828 }}>
-            {cssTheme
-              ? <CssThemeRenderer resume={resume} themeClass={cssTheme.cssClass} />
-              : <ResumePreview resume={resume} />
-            }
+            <ResumePreview resume={resume} />
           </div>
-          {/* Floating CSS theme picker — sits above preview, does not affect data flow */}
-          <ThemePicker activeTheme={cssTheme} onThemeChange={setCssTheme} />
         </div>
       </div>
 

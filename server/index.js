@@ -31,19 +31,21 @@ app.get('/api/resumes/:id', (req, res) => {
 });
 
 app.put('/api/resumes/:id', (req, res) => {
-  const { title, template, font_scale, accent_color } = req.body;
+  const { title, template, font_scale, accent_color, compact_mode } = req.body;
   const parsedScale = Number(font_scale);
   const safeScale = Number.isFinite(parsedScale) ? Math.min(1.18, Math.max(0.88, parsedScale)) : null;
   const safeAccent = typeof accent_color === 'string' ? accent_color : null;
+  const safeCompact = compact_mode === undefined ? null : (compact_mode ? 1 : 0);
   db.prepare(`
     UPDATE resumes SET
       title = COALESCE(?, title),
       template = COALESCE(?, template),
       font_scale = COALESCE(?, font_scale),
       accent_color = COALESCE(?, accent_color),
+      compact_mode = COALESCE(?, compact_mode),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(title ?? null, template ?? null, safeScale, safeAccent, req.params.id);
+  `).run(title ?? null, template ?? null, safeScale, safeAccent, safeCompact, req.params.id);
   res.json(db.prepare('SELECT * FROM resumes WHERE id = ?').get(req.params.id));
 });
 
@@ -57,8 +59,8 @@ app.post('/api/resumes/:id/clone', (req, res) => {
   if (!src) return res.status(404).json({ error: 'Not found' });
 
   const full = fullResume(req.params.id);
-  const newId = db.prepare('INSERT INTO resumes (title, template, font_scale, accent_color) VALUES (?,?,?,?)')
-    .run(`Copy of ${src.title}`, src.template, src.font_scale, src.accent_color).lastInsertRowid;
+  const newId = db.prepare('INSERT INTO resumes (title, template, font_scale, accent_color, compact_mode) VALUES (?,?,?,?,?)')
+    .run(`Copy of ${src.title}`, src.template, src.font_scale, src.accent_color, src.compact_mode ?? 0).lastInsertRowid;
 
   const p = full.personal;
   db.prepare(`INSERT INTO personal_info (resume_id,full_name,email,phone,location,website,linkedin,github,summary,tagline,subtitle)

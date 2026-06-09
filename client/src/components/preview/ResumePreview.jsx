@@ -8,8 +8,6 @@ export const PAD_X      = 44;
 export const PAD_Y_TOP  = 48;
 export const PAD_Y_BOT  = 48;
 export const CONTENT_H  = PAGE_H - PAD_Y_TOP - PAD_Y_BOT;
-const ATOMIC_ORPHAN_GUARD_H = 120;
-const BLOCK_ORPHAN_GUARD_H = 44;
 const ACCENT_HEXES = new Set([
   '#6366f1', '#4f46e5', '#e0e7ff', '#eef2ff', '#c7d2fe', '#a5b4fc',
   '#1e293b', '#0f172a', '#334155',
@@ -67,6 +65,10 @@ function applyAppearance(node, scale, accent) {
 }
 
 // ── Page-break avoidance ──────────────────────────────────────────────────────
+// Push any block that crosses a page boundary to the next page, as long as
+// the block fits on a single page. No threshold guard — guarding by distance
+// from the page end caused company-header + note text to be clipped when the
+// block started earlier than the guard distance.
 
 function computeSpacers(el) {
   const containerRect = el.getBoundingClientRect();
@@ -79,19 +81,15 @@ function computeSpacers(el) {
     const rect = block.getBoundingClientRect();
     const top = (rect.top - containerRect.top) + cumulative;
     const h   = rect.height;
-    const atomic = block.dataset.atomic === 'true';
 
     if (h >= CONTENT_H) return;
 
-    const pageEnd = (Math.floor(top / CONTENT_H) + 1) * CONTENT_H;
+    const pageEnd   = (Math.floor(top / CONTENT_H) + 1) * CONTENT_H;
     const remaining = pageEnd - top;
 
-    const guard = atomic ? ATOMIC_ORPHAN_GUARD_H : BLOCK_ORPHAN_GUARD_H;
-
-    if (top + h > pageEnd && remaining < guard) {
-      const spacer = remaining;
-      result[block.dataset.block] = spacer;
-      cumulative += spacer;
+    if (top + h > pageEnd) {
+      result[block.dataset.block] = remaining;
+      cumulative += remaining;
     }
   });
 
@@ -100,27 +98,42 @@ function computeSpacers(el) {
 
 // ── Paginated preview ─────────────────────────────────────────────────────────
 
+// Compact mode: top 3 experiences keep up to 4 bullets; older ones get no bullets/note.
+function applyCompactMode(resume) {
+  if (!resume?.compact_mode) return resume;
+  return {
+    ...resume,
+    experiences: (resume.experiences || []).map((exp, i) =>
+      i < 3
+        ? { ...exp, bullets: (exp.bullets || []).slice(0, 4) }
+        : { ...exp, bullets: [], note: null }
+    ),
+  };
+}
+
 export default function ResumePreview({ resume }) {
   const rawRef    = useRef(null);
   const spacedRef = useRef(null);
   const [spacers,   setSpacers]   = useState({});
   const [pageCount, setPageCount] = useState(1);
 
-  const ThemeBody  = getThemeBody(resume?.template);
-  const themeDef   = THEMES[resume?.template];
-  const fontScale  = clampScale(resume?.font_scale);
-  const accentColor = resume?.accent_color || '';
+  const r           = applyCompactMode(resume);
+  const ThemeBody   = getThemeBody(r?.template);
+  const themeDef    = THEMES[r?.template];
+  const fontScale   = clampScale(r?.font_scale);
+  const accentColor = r?.accent_color || '';
   const layoutKey = useMemo(() => JSON.stringify({
-    template: resume?.template || 'classic',
+    template: r?.template || 'classic',
     font_scale: fontScale,
     accent_color: accentColor,
-    personal: resume?.personal,
-    highlights: resume?.highlights,
-    experiences: resume?.experiences,
-    education: resume?.education,
-    skills: resume?.skills,
-    projects: resume?.projects,
-  }), [resume, fontScale, accentColor]);
+    compact_mode: r?.compact_mode,
+    personal: r?.personal,
+    highlights: r?.highlights,
+    experiences: r?.experiences,
+    education: r?.education,
+    skills: r?.skills,
+    projects: r?.projects,
+  }), [r, fontScale, accentColor]);
 
   useLayoutEffect(() => {
     if (!rawRef.current || !spacedRef.current) return;
@@ -142,12 +155,12 @@ export default function ResumePreview({ resume }) {
 
   const rawBody = (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {applyAppearance(ThemeBody({ resume, spacers: {} }), fontScale, accentColor)}
+      {applyAppearance(ThemeBody({ resume: r, spacers: {} }), fontScale, accentColor)}
     </div>
   );
   const spacedBody = (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {applyAppearance(ThemeBody({ resume, spacers }), fontScale, accentColor)}
+      {applyAppearance(ThemeBody({ resume: r, spacers }), fontScale, accentColor)}
     </div>
   );
 
