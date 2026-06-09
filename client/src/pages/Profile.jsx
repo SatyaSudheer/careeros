@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Check, Loader2, CloudOff, UserCircle, Plus, Pencil, Trash2,
+  Check, Loader2, CloudOff, UserCircle, Plus, Pencil, Trash2,
   Mail, Phone, MapPin, Globe, Linkedin, Github, X, ExternalLink,
   Briefcase, GraduationCap, Layers, FolderOpen, Award,
 } from 'lucide-react';
@@ -676,14 +676,7 @@ export default function Profile() {
     <div className="min-h-screen bg-slate-50">
       {/* ── Sticky header ──────────────────────────────────────── */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <button onClick={() => navigate('/')} className="btn-ghost !gap-1 !px-2 !py-1 text-slate-500">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden text-xs sm:inline">Dashboard</span>
-          </button>
-
-          <div className="h-5 w-px bg-slate-200" />
-
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900">
               <UserCircle className="h-4 w-4 text-white" />
@@ -694,7 +687,7 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <SaveStatus state={saveState} />
             <button
               onClick={handleCreateResume}

@@ -175,6 +175,340 @@ function bulletListDash(items, fontSize = 11.8) {
   </ul>`;
 }
 
+// ── Luxe ──────────────────────────────────────────────────────────────────────
+
+function luxeSection(title, content) {
+  const F = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+  return `<div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+      <span style="color:#6366f1;font-size:9px;line-height:1;flex-shrink:0;">◆</span>
+      <span style="${F}font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.16em;color:#6366f1;white-space:nowrap;">${esc(title)}</span>
+      <div style="flex:1;height:1px;background:#e0e7ff;"></div>
+    </div>${content}</div>`;
+}
+
+function buildLuxeHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactItems = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website  && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactItems.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:3px 14px;font-size:10.2px;color:#94a3b8;margin-top:8px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">
+        ${contactItems.map(item => `<span>${esc(item)}</span>`).join('<span style="color:#475569;padding:0 4px;">·</span>')}
+      </div>`
+    : '';
+
+  const summaryHtml    = p.summary    ? luxeSection('Summary', `<p style="font-size:12.2px;line-height:1.56;color:#475569;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>`) : '';
+  const highlightsHtml = his.length   ? luxeSection('Career Highlights', bulletList(his.map(h => h.text), 12.2)) : '';
+  const experienceHtml = exps.length  ? luxeSection('Experience', expRows(exps, { titleItalic: true, titleColor: '#6366f1' })) : '';
+  const educationHtml  = edus.length  ? luxeSection('Education', eduRows(edus)) : '';
+  const skillsHtml     = skls.length  ? luxeSection('Skills', skillRows(skls, { chips: true })) : '';
+  const projectsHtml   = pros.length  ? luxeSection('Notable Projects', projRows(pros, { nameColor: '#4f46e5' })) : '';
+  const certsHtml      = certs.length ? luxeSection('Certifications & Training', certRows(certs, { nameColor: '#1e293b', metaColor: '#6366f1' })) : '';
+
+  const pageDotsTR = Array.from({ length: 6 }, (_, r) =>
+    Array.from({ length: 5 }, (_, c) =>
+      `<circle cx="${666 + c * 22}" cy="${190 + r * 20}" r="1.8" fill="#6366f1" fill-opacity="0.28"/>`
+    ).join('')
+  ).join('');
+  const pageDotsBL = Array.from({ length: 5 }, (_, r) =>
+    Array.from({ length: 4 }, (_, c) =>
+      `<circle cx="${12 + c * 10}" cy="${876 + r * 22}" r="1.4" fill="#6366f1" fill-opacity="0.22"/>`
+    ).join('')
+  ).join('');
+  const headerDots = Array.from({ length: 4 }, (_, r) =>
+    Array.from({ length: 5 }, (_, c) =>
+      `<circle cx="${130 + c * 22}" cy="${20 + r * 18}" r="2" fill="white" fill-opacity="0.7"/>`
+    ).join('')
+  ).join('');
+
+  const bgSvg = `
+  <svg style="position:fixed;top:-0.45in;left:-0.45in;width:calc(100% + 0.9in);height:calc(100% + 0.9in);z-index:-1;pointer-events:none;" viewBox="0 0 816 1056" preserveAspectRatio="xMinYMin slice" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="5" height="1056" fill="#6366f1"/>
+    <circle cx="800" cy="20"   r="200" fill="#6366f1" fill-opacity="0.05"/>
+    <circle cx="816" cy="160"  r="130" fill="#6366f1" fill-opacity="0.04"/>
+    <circle cx="680" cy="60"   r="90"  fill="#6366f1" fill-opacity="0.03"/>
+    <circle cx="30"  cy="1040" r="180" fill="#6366f1" fill-opacity="0.04"/>
+    <circle cx="160" cy="1056" r="110" fill="#6366f1" fill-opacity="0.03"/>
+    ${pageDotsTR}${pageDotsBL}
+    <polygon points="816,1056 816,992 752,1056"  fill="#6366f1" fill-opacity="0.06"/>
+    <polygon points="816,1056 816,1024 784,1056" fill="#6366f1" fill-opacity="0.09"/>
+    <polygon points="5,0 5,48 44,0"              fill="#6366f1" fill-opacity="0.14"/>
+  </svg>`;
+
+  const headerSvg = `
+  <svg width="350" height="120" style="position:absolute;top:0;right:0;opacity:0.15;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="310" cy="0"   r="140" fill="white"/>
+    <circle cx="350" cy="90"  r="90"  fill="white"/>
+    <circle cx="200" cy="-20" r="80"  fill="white"/>
+    ${headerDots}
+  </svg>`;
+
+  const extraCss = `
+    .luxe-header {
+      background: linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#1e3a8a 100%);
+      margin:-0.45in -0.45in 0;
+      padding:0.45in 0.45in 20px;
+      position:relative;
+      overflow:hidden;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+  `;
+
+  const body = `
+  ${bgSvg}
+  <div class="luxe-header">
+    ${headerSvg}
+    <h1 style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#f8fafc;font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;position:relative;">${esc(p.full_name || '')}</h1>
+    ${p.tagline  ? `<p style="font-size:12.2px;color:#a5b4fc;font-weight:500;margin:5px 0 0;position:relative;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="font-size:11px;color:#c7d2fe;margin:2px 0 0;position:relative;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactHtml}
+  </div>
+  <div style="margin-top:20px;">
+    ${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${experienceHtml}${projectsHtml}${certsHtml}
+  </div>`;
+
+  return wrap(body, extraCss);
+}
+
+// ── Prestige ──────────────────────────────────────────────────────────────────
+
+function prestigeSection(title, content) {
+  const F = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+  return `<div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px;margin-bottom:10px;border-bottom:1.5px solid #6366f1;">
+      <div style="width:3px;height:14px;background:#6366f1;border-radius:1px;flex-shrink:0;"></div>
+      <span style="${F}font-size:7.5px;font-weight:900;text-transform:uppercase;letter-spacing:0.3em;color:#6366f1;">${esc(title)}</span>
+    </div>${content}</div>`;
+}
+
+function buildPrestigeHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [
+    p.email,
+    p.phone,
+    p.location,
+    p.website  && p.website.replace(/^https?:\/\/(www\.)?/, ''),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const contactHtml = contactParts.length
+    ? `<p style="font-size:10px;color:#64748b;margin:10px 0 0;line-height:1.5;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${contactParts.map((p, i) => `${i > 0 ? '<span style="color:#d1d5db;margin:0 7px;">|</span>' : ''}${esc(p)}`).join('')}</p>`
+    : '';
+
+  const skllPrestige = skls.length ? `<div style="display:flex;flex-direction:column;gap:7px;">${skls.map(s => `
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      ${s.category ? `<span style="font-size:10px;font-weight:800;color:#374151;min-width:90px;flex-shrink:0;text-transform:uppercase;letter-spacing:0.07em;padding-top:2px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(s.category)}</span>` : ''}
+      <div style="display:flex;flex-wrap:wrap;gap:4px 6px;">${(s.items||[]).map(item => `<span style="font-size:10.2px;color:#4f46e5;padding:2px 8px;border-radius:3px;border:1px solid #6366f1;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(item)}</span>`).join('')}</div>
+    </div>`).join('')}</div>` : '';
+
+  const summaryHtml    = p.summary    ? prestigeSection('Summary', `<p style="font-size:12px;line-height:1.62;color:#374151;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${mdHtml(p.summary)}</p>`) : '';
+  const highlightsHtml = his.length   ? prestigeSection('Career Highlights', bulletList(his.map(h => h.text), 12)) : '';
+  const experienceHtml = exps.length  ? prestigeSection('Experience', expRows(exps, { titleItalic: true, titleColor: '#6366f1', companyColor: '#0f172a' })) : '';
+  const educationHtml  = edus.length  ? prestigeSection('Education', eduRows(edus, { schoolColor: '#0f172a' })) : '';
+  const skillsHtml     = skls.length  ? prestigeSection('Skills', skllPrestige) : '';
+  const projectsHtml   = pros.length  ? prestigeSection('Notable Projects', projRows(pros, { nameColor: '#4f46e5' })) : '';
+  const certsHtml      = certs.length ? prestigeSection('Certifications & Training', certRows(certs, { nameColor: '#1e293b', metaColor: '#6366f1' })) : '';
+
+  const squaresTR = Array.from({ length: 4 }, (_, r) =>
+    Array.from({ length: 4 }, (_, c) =>
+      `<rect x="${672 + c * 18}" y="${28 + r * 18}" width="9" height="9" fill="#6366f1" fill-opacity="${(0.07 + r * 0.015).toFixed(3)}" rx="1.5"/>`
+    ).join('')
+  ).join('');
+  const squaresBL = Array.from({ length: 3 }, (_, r) =>
+    Array.from({ length: 4 }, (_, c) =>
+      `<rect x="${16 + c * 18}" y="${952 + r * 18}" width="9" height="9" fill="#6366f1" fill-opacity="0.07" rx="1.5"/>`
+    ).join('')
+  ).join('');
+
+  const bgSvg = `
+  <svg style="position:fixed;top:-0.45in;left:-0.45in;width:calc(100% + 0.9in);height:calc(100% + 0.9in);z-index:-1;pointer-events:none;" viewBox="0 0 816 1056" preserveAspectRatio="xMinYMin slice" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0"   y="0"    width="816" height="4"    fill="#6366f1"/>
+    <rect x="812" y="0"    width="4"   height="1056" fill="#6366f1"/>
+    <rect x="0"   y="0"    width="12"  height="12"   fill="#6366f1"/>
+    <rect x="804" y="0"    width="12"  height="12"   fill="#6366f1"/>
+    <rect x="0"   y="1044" width="12"  height="12"   fill="#6366f1" fill-opacity="0.35"/>
+    <rect x="804" y="1044" width="12"  height="12"   fill="#6366f1" fill-opacity="0.35"/>
+    ${squaresTR}${squaresBL}
+  </svg>`;
+
+  const extraCss = `
+    .prestige-header {
+      padding-top:22px;
+      padding-bottom:18px;
+      margin-bottom:16px;
+      border-bottom:1.5px solid #e2e8f0;
+    }
+  `;
+
+  const body = `
+  ${bgSvg}
+  <div class="prestige-header">
+    <h1 style="font-size:26px;font-weight:900;letter-spacing:-0.025em;color:#0f172a;font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0;line-height:1.1;">${esc(p.full_name || '')}</h1>
+    ${p.tagline  ? `<p style="font-size:12.5px;font-weight:600;color:#64748b;margin:7px 0 0;letter-spacing:0.07em;text-transform:uppercase;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.tagline)}</p>` : ''}
+    ${p.subtitle ? `<p style="font-size:11px;color:#94a3b8;margin:3px 0 0;letter-spacing:0.02em;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(p.subtitle)}</p>` : ''}
+    ${contactHtml}
+  </div>
+  ${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${experienceHtml}${projectsHtml}${certsHtml}`;
+
+  return wrap(body, extraCss);
+}
+
+// ── Folio ─────────────────────────────────────────────────────────────────────
+
+function buildFolioHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+  const F     = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+
+  const initial = (p.full_name || '').trim()[0] || '';
+
+  const contactItems = [
+    p.location,
+    p.linkedin ? urlDisplay(p.linkedin) : null,
+    p.email,
+    p.phone,
+    p.website  ? urlDisplay(p.website)  : null,
+    p.github   ? urlDisplay(p.github)   : null,
+  ].filter(Boolean);
+
+  const sideTitle = (t) =>
+    `<div style="display:flex;align-items:center;gap:7px;margin:14px 0 8px;">
+       <div style="width:18px;height:2px;background:#6366f1;border-radius:1px;flex-shrink:0;"></div>
+       <span style="${F}font-size:10.5px;font-weight:700;color:#6366f1;">${esc(t)}</span>
+     </div>`;
+
+  const rightTitle = (t) =>
+    `<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;margin-top:2px;">
+       <div style="width:26px;height:2.5px;background:#6366f1;border-radius:1.5px;flex-shrink:0;"></div>
+       <span style="${F}font-size:13px;font-weight:700;color:#6366f1;">${esc(t)}</span>
+     </div>`;
+
+  const contactHtml = contactItems.length
+    ? contactItems.map(item => `<p style="${F}font-size:10.5px;color:#475569;margin:2px 0;line-height:1.45;word-break:break-word;">${esc(item)}</p>`).join('')
+    : '';
+
+  const skillsHtml = skls.length ? skls.map(s => `
+    <div style="margin-bottom:7px;">
+      ${s.category ? `<p style="${F}font-size:10.5px;font-weight:700;color:#1e293b;margin:0 0 1px;">${esc(s.category)}</p>` : ''}
+      <p style="${F}font-size:10.5px;color:#475569;margin:0;line-height:1.45;">${esc((s.items||[]).join(', '))}</p>
+    </div>`).join('') : '';
+
+  const summaryHtml = p.summary
+    ? `<div style="margin-bottom:18px;">
+         <p style="${F}font-size:13.5px;line-height:1.65;color:#6366f1;font-weight:500;margin:0;">${mdHtml(p.summary)}</p>
+       </div>` : '';
+
+  const highlightsHtml = his.length
+    ? `<div style="margin-bottom:14px;">
+         ${rightTitle('Career highlights')}
+         ${his.map(h => `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;">
+           <span style="${F}font-size:11px;color:#94a3b8;flex-shrink:0;line-height:1.6;">•</span>
+           <span style="${F}font-size:13px;line-height:1.6;color:#374151;">${mdHtml(h.text)}</span>
+         </div>`).join('')}
+       </div>` : '';
+
+  const expHtml = exps.length
+    ? `<div style="margin-bottom:14px;">
+         ${rightTitle('Experience')}
+         ${exps.map(e => `
+           <div style="margin-bottom:12px;page-break-inside:avoid;">
+             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+               <div style="flex:1;min-width:0;">
+                 <p style="${F}font-size:12.5px;font-weight:800;color:#1e293b;margin:0;">${esc(e.company)}</p>
+                 <p style="${F}font-size:11.5px;color:#6366f1;font-style:italic;margin:1px 0 0;">${esc([e.title, e.location].filter(Boolean).join(' · '))}</p>
+               </div>
+               ${dateSpan(e.start_date, e.end_date, e.current_job)}
+             </div>
+             ${e.note ? `<p style="${F}font-size:11px;font-style:italic;color:#64748b;line-height:1.5;margin:3px 0 2px;">${mdHtml(e.note)}</p>` : ''}
+             ${bulletList(e.bullets, 11.5)}
+           </div>`).join('')}
+       </div>` : '';
+
+  const eduHtml = edus.length
+    ? `<div style="margin-bottom:14px;">
+         ${rightTitle('Education')}
+         ${eduRows(edus)}
+       </div>` : '';
+
+  const projHtml = pros.length
+    ? `<div style="margin-bottom:14px;">
+         ${rightTitle('Notable Projects')}
+         ${projRows(pros, { nameColor: '#4f46e5' })}
+       </div>` : '';
+
+  const certsHtml = certs.length
+    ? `<div style="margin-bottom:14px;">
+         ${rightTitle('Certifications & Training')}
+         ${certRows(certs, { nameColor: '#1e293b', metaColor: '#6366f1' })}
+       </div>` : '';
+
+  // Fixed SVG background: sidebar tint + decorative circle + separator line
+  // 0.45in margin = 43.2px; left column = 230px; sidebar edge ≈ 273px
+  const bgSvg = `
+  <svg style="position:fixed;top:-0.45in;left:-0.45in;width:calc(100% + 0.9in);height:calc(100% + 0.9in);z-index:-1;pointer-events:none;" viewBox="0 0 816 1056" preserveAspectRatio="xMinYMin slice" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="274" height="1056" fill="#6366f1" fill-opacity="0.05"/>
+    <circle cx="137" cy="130" r="100" fill="#6366f1" fill-opacity="0.08"/>
+    <line x1="274" y1="43" x2="274" y2="1013" stroke="#6366f1" stroke-width="0.5" stroke-opacity="0.3"/>
+  </svg>`;
+
+  const leftCol = `
+  <div style="padding-top:20px;padding-right:10px;position:relative;overflow:hidden;">
+    ${initial ? `<div aria-hidden="true" style="position:absolute;top:-18px;left:-25px;font-size:148px;font-weight:900;color:#6366f1;opacity:0.1;line-height:1;user-select:none;pointer-events:none;${F}">${esc(initial)}</div>` : ''}
+    <div style="position:relative;">
+      <h1 style="${F}font-size:22px;font-weight:900;color:#1e293b;margin:0;line-height:1.18;letter-spacing:-0.01em;">${esc(p.full_name || '')}</h1>
+      ${p.tagline ? `<div style="display:flex;align-items:center;gap:7px;margin-top:8px;">
+        <div style="width:20px;height:2px;background:#6366f1;border-radius:1px;flex-shrink:0;"></div>
+        <p style="${F}font-size:11.5px;color:#64748b;margin:0;font-weight:500;">${esc(p.tagline)}</p>
+      </div>` : ''}
+      ${p.subtitle ? `<p style="${F}font-size:11px;color:#94a3b8;margin:4px 0 0;">${esc(p.subtitle)}</p>` : ''}
+    </div>
+    ${contactItems.length ? sideTitle('Contact Info') + contactHtml : ''}
+    ${skls.length ? sideTitle('Technical Skills') + skillsHtml : ''}
+  </div>`;
+
+  const rightCol = `
+  <div style="padding-top:20px;">
+    ${summaryHtml}${highlightsHtml}${expHtml}${eduHtml}${projHtml}${certsHtml}
+  </div>`;
+
+  const body = `
+  ${bgSvg}
+  <div style="display:grid;grid-template-columns:230px 1fr;gap:0 24px;">
+    ${leftCol}
+    ${rightCol}
+  </div>`;
+
+  return wrap(body);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildResumeHtml(resume) {
@@ -185,6 +519,9 @@ function buildResumeHtml(resume) {
     case 'minimal':    html = buildMinimalHtml(resume); break;
     case 'leadership': html = buildLeadershipHtml(resume); break;
     case 'compact':    html = buildCompactHtml(resume); break;
+    case 'luxe':       html = buildLuxeHtml(resume); break;
+    case 'prestige':   html = buildPrestigeHtml(resume); break;
+    case 'folio':      html = buildFolioHtml(resume); break;
     default:           html = buildClassicHtml(resume);
   }
   return applyResumeAppearance(html, resume);

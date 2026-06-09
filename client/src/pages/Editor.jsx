@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X, ChevronDown } from 'lucide-react';
 import { THEMES } from '../components/preview/themes.jsx';
 import { api } from '../api.js';
 import PersonalSection from '../components/editor/PersonalSection.jsx';
@@ -11,6 +11,8 @@ import SkillsSection from '../components/editor/SkillsSection.jsx';
 import ProjectsSection from '../components/editor/ProjectsSection.jsx';
 import CertificationsSection from '../components/editor/CertificationsSection.jsx';
 import ResumePreview from '../components/preview/ResumePreview.jsx';
+import CssThemeRenderer from '../components/preview/CssThemeRenderer.jsx';
+import ThemePicker from '../components/ThemePicker.jsx';
 import AtsScore from '../components/AtsScore.jsx';
 
 function SaveStatus({ state }) {
@@ -158,6 +160,9 @@ export default function Editor() {
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  // CSS theme engine — null means default inline-style renderer is active
+  const [cssTheme, setCssTheme] = useState(null);
 
   const load = useCallback(() =>
     api.resumes.get(id).then(setResume).finally(() => setLoading(false))
@@ -308,6 +313,7 @@ export default function Editor() {
               onClick={() => {
                 setStyleOpen(o => !o);
                 setThemeOpen(false);
+                setExportOpen(false);
               }}
               className={`btn-ghost !py-1.5 !px-3 !text-xs !gap-1.5 ${styleOpen ? '!text-indigo-600 !bg-indigo-50' : '!text-slate-500'}`}
               title="Resume style"
@@ -384,6 +390,7 @@ export default function Editor() {
               onClick={() => {
                 setThemeOpen(o => !o);
                 setStyleOpen(false);
+                setExportOpen(false);
               }}
               className={`btn-ghost !py-1.5 !px-3 !text-xs !gap-1.5 ${themeOpen ? '!text-indigo-600 !bg-indigo-50' : '!text-slate-500'}`}
             >
@@ -418,36 +425,55 @@ export default function Editor() {
             )}
           </div>
 
-          <button
-            onClick={() => setPdfModalOpen(true)}
-            disabled={exporting}
-            className="btn-secondary !py-1.5 !text-xs min-w-[108px] justify-center"
-          >
-            {exporting && exportingKind === 'pdf'
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
-              : <><FileDown className="h-3.5 w-3.5" />Export PDF</>
-            }
-          </button>
-          <button
-            onClick={() => exportFile('docx')}
-            disabled={exporting}
-            className="btn-secondary !py-1.5 !text-xs min-w-[92px] justify-center"
-          >
-            {exporting && exportingKind === 'docx'
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />DOCX…</>
-              : <><FileText className="h-3.5 w-3.5" />DOCX</>
-            }
-          </button>
-          <button
-            onClick={() => exportFile('txt')}
-            disabled={exporting}
-            className="btn-secondary !py-1.5 !text-xs min-w-[78px] justify-center"
-          >
-            {exporting && exportingKind === 'txt'
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />TXT…</>
-              : <><FileText className="h-3.5 w-3.5" />TXT</>
-            }
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => { setExportOpen(o => !o); setThemeOpen(false); setStyleOpen(false); }}
+              disabled={exporting}
+              className={`btn-secondary !py-1.5 !text-xs !gap-1.5 ${exportOpen ? '!text-indigo-600 !bg-indigo-50 !border-indigo-200' : ''}`}
+            >
+              {exporting
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <FileDown className="h-3.5 w-3.5" />
+              }
+              Export
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-fade-in">
+                  <p className="px-3 pt-2.5 pb-1 text-[10.5px] font-semibold uppercase tracking-widest text-slate-400">Format</p>
+                  <button
+                    onClick={() => { setPdfModalOpen(true); setExportOpen(false); }}
+                    disabled={exporting}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <FileDown className="h-3.5 w-3.5 text-slate-400" />
+                    PDF
+                    <span className="ml-auto text-[10.5px] text-slate-400">Formatted</span>
+                  </button>
+                  <button
+                    onClick={() => { exportFile('docx'); setExportOpen(false); }}
+                    disabled={exporting}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                    DOCX
+                    <span className="ml-auto text-[10.5px] text-slate-400">Word</span>
+                  </button>
+                  <button
+                    onClick={() => { exportFile('txt'); setExportOpen(false); }}
+                    disabled={exporting}
+                    className="flex w-full items-center gap-2.5 px-3 pb-3 pt-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                    TXT
+                    <span className="ml-auto text-[10.5px] text-slate-400">Plain text</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -469,8 +495,13 @@ export default function Editor() {
         {/* Right panel: Preview */}
         <div className="flex-1 overflow-y-auto preview-scroll bg-[#E8ECF0]">
           <div className="mx-auto py-8 px-6" style={{ maxWidth: 828 }}>
-            <ResumePreview resume={resume} />
+            {cssTheme
+              ? <CssThemeRenderer resume={resume} themeClass={cssTheme.cssClass} />
+              : <ResumePreview resume={resume} />
+            }
           </div>
+          {/* Floating CSS theme picker — sits above preview, does not affect data flow */}
+          <ThemePicker activeTheme={cssTheme} onThemeChange={setCssTheme} />
         </div>
       </div>
 

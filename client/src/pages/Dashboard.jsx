@@ -1,10 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Trash2, Copy, Clock, ArrowRight, Sparkles, User, Briefcase, GraduationCap, Layers, Loader2, BarChart3, CheckCircle2, BookOpen } from 'lucide-react';
+
+const STAT_LINKS = {
+  Resumes: null,
+  'Active Jobs': '/jobs',
+  Applied: '/jobs',
+  Interviews: '/jobs',
+  'Prep Plans': '/prep',
+};
 import { api } from '../api.js';
 
 function timeAgo(dateStr) {
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  // SQLite CURRENT_TIMESTAMP returns "YYYY-MM-DD HH:MM:SS" in UTC with no timezone
+  // marker — normalize to ISO 8601 so Date() parses it as UTC, not local time.
+  const utc = String(dateStr).replace(' ', 'T') + 'Z';
+  const diff = (Date.now() - new Date(utc).getTime()) / 1000;
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -140,33 +151,13 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Nav */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <FileText className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="font-semibold text-slate-900 text-[15px]">CareerOS</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/prep')} className="btn-secondary text-[13px] !py-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              Prep Tracker
-            </button>
-            <button onClick={() => navigate('/jobs')} className="btn-secondary text-[13px] !py-1.5">
-              <Briefcase className="h-3.5 w-3.5" />
-              Job Tracker
-            </button>
-            <button
-              onClick={createResume}
-              disabled={creating}
-              className="btn-primary text-[13px] !py-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Resume
-            </button>
-          </div>
+          <h1 className="text-[15px] font-semibold text-slate-900">Dashboard</h1>
+          <button onClick={createResume} disabled={creating} className="btn-primary text-[13px] !py-1.5">
+            <Plus className="h-3.5 w-3.5" />
+            New Resume
+          </button>
         </div>
       </header>
 
@@ -289,15 +280,23 @@ export default function Dashboard() {
                 { label: 'Applied', value: metrics?.applied ?? 0, icon: CheckCircle2 },
                 { label: 'Interviews', value: metrics?.interview ?? 0, icon: Briefcase },
                 { label: 'Prep Plans', value: metrics?.prepPlans ?? 0, icon: BookOpen },
-              ].map(({ label, value, icon: Icon }) => (
-                <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</p>
-                    <Icon className="h-4 w-4 text-slate-300" />
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
-                </div>
-              ))}
+              ].map(({ label, value, icon: Icon }) => {
+                const to = STAT_LINKS[label];
+                const Comp = to ? 'button' : 'div';
+                return (
+                  <Comp
+                    key={label}
+                    onClick={to ? () => navigate(to) : undefined}
+                    className={`rounded-xl border border-slate-200 bg-white p-4 text-left transition-all ${to ? 'cursor-pointer hover:border-indigo-200 hover:shadow-sm' : ''}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</p>
+                      <Icon className="h-4 w-4 text-slate-300" />
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+                  </Comp>
+                );
+              })}
             </div>
 
             <div className="mb-6 flex items-end justify-between">

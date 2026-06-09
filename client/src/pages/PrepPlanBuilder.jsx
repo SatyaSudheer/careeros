@@ -267,12 +267,16 @@ export default function PrepPlanBuilder() {
     setPlan(prev => ({ ...prev, items: prev.items.filter(i => i.status !== 'done') }));
   }
 
-  function toggleItemStatus(itemId) {
-    if (viewMode) return;
+  async function toggleItemStatus(itemId) {
     const item = plan.items.find(i => i.id === itemId);
     if (!item) return;
     const newStatus = item.status === 'done' ? 'todo' : 'done';
-    onChangeItem(itemId, { status: newStatus });
+    const updated = { ...item, status: newStatus };
+    setPlan(prev => ({
+      ...prev,
+      items: prev.items.map(i => i.id === itemId ? updated : i),
+    }));
+    await api.prepPlans.items.update(id, itemId, updated);
   }
 
   const hasFilters = statusFilter !== 'all' || categoryFilter !== 'all';
@@ -562,13 +566,12 @@ export default function PrepPlanBuilder() {
                       <div className={`flex items-center gap-3 px-4 py-3 ${viewMode ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => { if (!viewMode) toggleExpand(item.id); }}>
                         <button
                           onClick={e => { e.stopPropagation(); toggleItemStatus(item.id); }}
-                          disabled={viewMode}
-                          className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-all ${
+                          className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-2 transition-all hover:border-indigo-300 ${
                             item.status === 'done'
                               ? 'border-emerald-400 bg-emerald-500 text-white'
-                              : `border-slate-300 bg-white ${viewMode ? '' : 'hover:border-indigo-300'}`
+                              : 'border-slate-300 bg-white'
                           }`}
-                          title={viewMode ? 'Open edit mode to update status' : item.status === 'done' ? 'Reopen task' : 'Mark done'}
+                          title={item.status === 'done' ? 'Reopen task' : 'Mark done'}
                         >
                           {item.status === 'done' && <CheckCircle2 className="h-3.5 w-3.5" />}
                         </button>

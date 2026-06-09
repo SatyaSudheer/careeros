@@ -1,0 +1,107 @@
+/*
+ * Theme Name:      Minimal
+ * Intended Audience: Technology professionals, startup founders, product managers
+ * ATS Risk Level:  Low
+ *
+ * Design language:
+ *   Whitespace IS the hierarchy. No decorative rules, no ornament — only
+ *   type weight, size, and spacing signal structure. Inter's engineering
+ *   precision ensures pixel-perfect rendering at any scale. Default theme
+ *   for lowest ATS risk and maximum parsing compatibility.
+ *
+ * Font import via Google Fonts — loaded conditionally when theme is activated.
+ * @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+ */
+
+.css-resume.theme-minimal {
+  /* ── Typography tokens ─────────────────────────────────────────────────── */
+  --font-heading:         'Inter', system-ui, -apple-system, sans-serif;
+  --font-body:            'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:            'Inter', system-ui, sans-serif;  /* no true mono for minimal */
+
+  --font-size-name:       30px;
+  --font-size-section:    11px;
+  --font-size-body:       11px;
+  --font-size-meta:       10px;
+  --font-weight-heading:  600;
+
+  /* ── Color tokens ──────────────────────────────────────────────────────── */
+  --color-accent:         #374151;
+  --color-rule:           #E5E7EB;
+  --color-text-primary:   #111827;
+  --color-text-secondary: #6B7280;
+  --color-bg:             #ffffff;
+
+  /* ── Rhythm: precise 8px grid ──────────────────────────────────────────── */
+  --section-spacing:      24px;
+  --entry-spacing:        12px;
+
+  /* ── Name display ──────────────────────────────────────────────────────── */
+  --name-letter-spacing:  -0.02em;   /* Inter looks better tight at display size */
+
+  /* ── Section labels: small uppercase with tight tracking ──────────────── */
+  --section-label-style:  uppercase;
+
+  /* ── Section title decoration: hairline bottom rule ──────────────────── */
+  --section-title-border-left:   none;
+  --section-title-border-bottom: 1px solid #E5E7EB;
+  --section-title-border-top:    none;
+  --section-title-padding-bottom: 4px;
+}
+
+/* Name: bold weight in minimal overrides the 600 default */
+.css-resume.theme-minimal .cr-name {
+  font-weight:     700;
+  letter-spacing:  -0.02em;
+}
+
+/* Section titles: 11px uppercase, 2px tracking — ultra-clean badge feel */
+.css-resume.theme-minimal .cr-section-title {
+  letter-spacing:  0.12em;
+  font-size:       11px;
+  font-weight:     600;
+  color:           #6B7280;          /* muted — whitespace does the work */
+  padding-bottom:  5px;
+  margin-bottom:   10px;
+}
+
+/* Job title: weight 500 instead of 400 */
+.css-resume.theme-minimal .cr-title {
+  font-weight: 500;
+  font-size:   calc(var(--font-size-name) * 0.40);
+}
+
+/* Entry company: semi-bold (not full bold) for minimal feel */
+.css-resume.theme-minimal .cr-entry-company {
+  font-weight: 600;
+}
+
+/* Skills: items in lighter color, no min-width constraint */
+.css-resume.theme-minimal .cr-skill-category {
+  font-weight: 600;
+  color:       #374151;
+  min-width:   80px;
+}
+
+.css-resume.theme-minimal .cr-skill-items {
+  color: #6B7280;
+}
+
+/* Bullets: tighter spacing for information density */
+.css-resume.theme-minimal .cr-bullets {
+  gap:         3px;
+  padding-left: 14px;
+}
+
+/* Print: already near-plain, minimal changes needed */
+@media print {
+  .css-resume.theme-minimal {
+    --font-heading:              sans-serif;
+    --font-body:                 sans-serif;
+    --color-accent:              #000000;
+    --color-rule:                #CCCCCC;
+    --color-text-primary:        #000000;
+    --color-text-secondary:      #555555;
+    --section-title-border-bottom: 1px solid #CCCCCC;
+  }
+}

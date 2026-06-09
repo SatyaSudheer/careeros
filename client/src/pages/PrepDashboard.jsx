@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Target, Search, Plus, ArrowLeft, Loader2, Briefcase, Trash2, Clock, AlertTriangle, CheckCircle2, Play, X, Calendar, ArrowRight } from 'lucide-react';
+import { BookOpen, Target, Search, Plus, Loader2, Trash2, Clock, AlertTriangle, CheckCircle2, Play, X, Calendar, ArrowRight } from 'lucide-react';
 import { api } from '../api.js';
 
 const STATUS_OPTIONS = [
@@ -114,17 +114,9 @@ export default function PrepDashboard() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="btn-ghost !p-2" title="Dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-                <BookOpen className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-[15px] font-semibold text-slate-900">Preparation Tracker</h1>
-                <p className="text-[11.5px] text-slate-400">Plan, review, and close interview prep</p>
-              </div>
+            <div>
+              <h1 className="text-[15px] font-semibold text-slate-900">Prep Tracker</h1>
+              <p className="text-[11.5px] text-slate-400">Plan, review, and close interview prep</p>
             </div>
             {plans.length > 0 && (
               <span className="hidden sm:inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
@@ -132,16 +124,10 @@ export default function PrepDashboard() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/jobs')} className="btn-secondary text-[13px] !py-1.5">
-              <Briefcase className="h-3.5 w-3.5" />
-              Job Tracker
-            </button>
-            <button onClick={createGeneralPlan} disabled={creating} className="btn-primary text-[13px] !py-1.5">
-              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              New General Plan
-            </button>
-          </div>
+          <button onClick={createGeneralPlan} disabled={creating} className="btn-primary text-[13px] !py-1.5">
+            {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            New Plan
+          </button>
         </div>
       </header>
 

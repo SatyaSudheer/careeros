@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  BookOpen,
   Briefcase,
   Calendar,
   Check,
@@ -16,6 +14,7 @@ import {
   Search,
   Target,
   Trash2,
+  BookOpen,
   X,
 } from 'lucide-react';
 import { api } from '../api.js';
@@ -240,30 +239,14 @@ export default function JobTracker() {
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="btn-ghost !p-2" title="Dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-                <Briefcase className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-[15px] font-semibold text-slate-900">Job Tracker</h1>
-                <p className="text-[11.5px] text-slate-400">Pipeline, JDs, shared resumes, closure</p>
-              </div>
-            </div>
+          <div>
+            <h1 className="text-[15px] font-semibold text-slate-900">Job Tracker</h1>
+            <p className="text-[11.5px] text-slate-400">Pipeline, JDs, shared resumes, closure</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/prep')} className="btn-secondary text-[13px] !py-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              Prep Tracker
-            </button>
-            <button onClick={createJob} disabled={saving} className="btn-primary text-[13px] !py-1.5">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              New Job
-            </button>
-          </div>
+          <button onClick={createJob} disabled={saving} className="btn-primary text-[13px] !py-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            New Job
+          </button>
         </div>
       </header>
 
@@ -554,8 +537,8 @@ export default function JobTracker() {
                         Timeline
                       </div>
                       <div className="mt-3 space-y-2 text-[12px] text-slate-500">
-                        <p>Created: {selectedJob?.created_at ? new Date(selectedJob.created_at).toLocaleDateString() : '-'}</p>
-                        <p>Updated: {selectedJob?.updated_at ? new Date(selectedJob.updated_at).toLocaleDateString() : '-'}</p>
+                        <p>Created: {selectedJob?.created_at ? new Date(selectedJob.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() : '-'}</p>
+                        <p>Updated: {selectedJob?.updated_at ? new Date(selectedJob.updated_at.replace(' ', 'T') + 'Z').toLocaleDateString() : '-'}</p>
                         <p>Applied: {draft.applied_date || '-'}</p>
                       </div>
                     </div>

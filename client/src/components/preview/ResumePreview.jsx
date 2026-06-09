@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useMemo, useRef, useLayoutEffect, useState } from 'react';
-import { getThemeBody } from './themes.jsx';
+import { getThemeBody, THEMES } from './themes.jsx';
 
 // ── Letter page geometry (96 dpi), matching server PDF export ────────────────
 export const PAGE_W     = 816;
@@ -106,8 +106,9 @@ export default function ResumePreview({ resume }) {
   const [spacers,   setSpacers]   = useState({});
   const [pageCount, setPageCount] = useState(1);
 
-  const ThemeBody = getThemeBody(resume?.template);
-  const fontScale = clampScale(resume?.font_scale);
+  const ThemeBody  = getThemeBody(resume?.template);
+  const themeDef   = THEMES[resume?.template];
+  const fontScale  = clampScale(resume?.font_scale);
   const accentColor = resume?.accent_color || '';
   const layoutKey = useMemo(() => JSON.stringify({
     template: resume?.template || 'classic',
@@ -180,6 +181,9 @@ export default function ResumePreview({ resume }) {
             borderRadius: 4,
           }}
         >
+          {/* Per-page background graphics (theme opt-in via pageBg) */}
+          {themeDef?.pageBg && <themeDef.pageBg accentColor={accentColor || themeDef.accent} />}
+
           <div style={{ position: 'absolute', top: PAD_Y_TOP - i * CONTENT_H, left: PAD_X, right: PAD_X }}>
             {spacedBody}
           </div>

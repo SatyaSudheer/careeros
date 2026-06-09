@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Editor from './pages/Editor.jsx';
 import Profile from './pages/Profile.jsx';
@@ -10,12 +11,13 @@ export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/jobs" element={<JobTracker />} />
-        <Route path="/prep" element={<PrepDashboard />} />
-        <Route path="/prep-plans/:id" element={<PrepPlanBuilder />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/" element={<Layout><Dashboard /></Layout>} />
+        <Route path="/jobs" element={<Layout><JobTracker /></Layout>} />
+        <Route path="/prep" element={<Layout><PrepDashboard /></Layout>} />
+        <Route path="/profile" element={<Layout><Profile /></Layout>} />
+        {/* Detail views — full screen, no sidebar */}
         <Route path="/resumes/:id" element={<Editor />} />
+        <Route path="/prep-plans/:id" element={<PrepPlanBuilder />} />
       </Routes>
     </BrowserRouter>
   );
