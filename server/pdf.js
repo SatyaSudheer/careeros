@@ -400,108 +400,110 @@ function buildFolioHtml(resume) {
   ].filter(Boolean);
 
   const sideTitle = (t) =>
-    `<div style="display:flex;align-items:center;gap:7px;margin:14px 0 8px;">
-       <div style="width:18px;height:2px;background:#6366f1;border-radius:1px;flex-shrink:0;"></div>
-       <span style="${F}font-size:10.5px;font-weight:700;color:#6366f1;">${esc(t)}</span>
+    `<div style="margin-top:18px;margin-bottom:8px;">
+       <span style="${F}font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.13em;color:#6366f1;display:block;padding-bottom:5px;border-bottom:1px solid rgba(99,102,241,0.25);">${esc(t)}</span>
      </div>`;
 
   const rightTitle = (t) =>
-    `<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;margin-top:2px;">
-       <div style="width:26px;height:2.5px;background:#6366f1;border-radius:1.5px;flex-shrink:0;"></div>
-       <span style="${F}font-size:13px;font-weight:700;color:#6366f1;">${esc(t)}</span>
+    `<div style="margin-bottom:12px;margin-top:2px;padding-bottom:6px;border-bottom:1.5px solid #e2e8f0;">
+       <span style="${F}font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#334155;">${esc(t)}</span>
      </div>`;
 
   const contactHtml = contactItems.length
-    ? contactItems.map(item => `<p style="${F}font-size:10.5px;color:#475569;margin:2px 0;line-height:1.45;word-break:break-word;">${esc(item)}</p>`).join('')
+    ? contactItems.map(item =>
+        `<div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;">
+           <div style="width:3.5px;height:3.5px;border-radius:50%;background:#6366f1;opacity:0.45;flex-shrink:0;margin-top:5.5px;"></div>
+           <p style="${F}font-size:10.5px;color:#475569;margin:0;line-height:1.5;word-break:break-all;">${esc(item)}</p>
+         </div>`).join('')
     : '';
 
   const skillsHtml = skls.length ? skls.map(s => `
-    <div style="margin-bottom:7px;">
-      ${s.category ? `<p style="${F}font-size:10.5px;font-weight:700;color:#1e293b;margin:0 0 1px;">${esc(s.category)}</p>` : ''}
-      <p style="${F}font-size:10.5px;color:#475569;margin:0;line-height:1.45;">${esc((s.items||[]).join(', '))}</p>
+    <div style="margin-bottom:9px;">
+      ${s.category ? `<p style="${F}font-size:10.5px;font-weight:700;color:#1e293b;margin:0 0 4px;">${esc(s.category)}</p>` : ''}
+      <div style="display:flex;flex-wrap:wrap;gap:3px 4px;">
+        ${(s.items||[]).map(item => `<span style="${F}font-size:9.5px;color:#4f46e5;background:rgba(99,102,241,0.09);border-radius:3px;padding:2px 6px;line-height:1.5;border:0.5px solid rgba(99,102,241,0.15);">${esc(item)}</span>`).join('')}
+      </div>
     </div>`).join('') : '';
 
   const summaryHtml = p.summary
-    ? `<div style="margin-bottom:18px;">
-         <p style="${F}font-size:13.5px;line-height:1.65;color:#6366f1;font-weight:500;margin:0;">${mdHtml(p.summary)}</p>
+    ? `<div style="margin-bottom:18px;padding-left:12px;border-left:3px solid #6366f1;border-radius:1px;">
+         <p style="${F}font-size:12px;line-height:1.68;color:#374151;margin:0;">${mdHtml(p.summary)}</p>
        </div>` : '';
 
   const highlightsHtml = his.length
-    ? `<div style="margin-bottom:14px;">
-         ${rightTitle('Career highlights')}
-         ${his.map(h => `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;">
-           <span style="${F}font-size:11px;color:#94a3b8;flex-shrink:0;line-height:1.6;">•</span>
-           <span style="${F}font-size:13px;line-height:1.6;color:#374151;">${mdHtml(h.text)}</span>
+    ? `<div style="margin-bottom:16px;">
+         ${rightTitle('Career Highlights')}
+         ${his.map(h => `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+           <span style="${F}font-size:10px;color:#6366f1;flex-shrink:0;line-height:1.65;">&#9658;</span>
+           <span style="${F}font-size:11.5px;line-height:1.65;color:#374151;">${mdHtml(h.text)}</span>
          </div>`).join('')}
        </div>` : '';
 
   const expHtml = exps.length
-    ? `<div style="margin-bottom:14px;">
+    ? `<div style="margin-bottom:16px;">
          ${rightTitle('Experience')}
          ${exps.map(e => `
-           <div style="margin-bottom:12px;page-break-inside:avoid;">
+           <div style="margin-bottom:13px;page-break-inside:avoid;">
              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                <div style="flex:1;min-width:0;">
-                 <p style="${F}font-size:12.5px;font-weight:800;color:#1e293b;margin:0;">${esc(e.company)}</p>
-                 <p style="${F}font-size:11.5px;color:#6366f1;font-style:italic;margin:1px 0 0;">${esc([e.title, e.location].filter(Boolean).join(' · '))}</p>
+                 <p style="${F}font-size:12.5px;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.005em;">${esc(e.company)}</p>
+                 <p style="${F}font-size:11.5px;color:#6366f1;font-weight:500;margin:1px 0 0;">${esc([e.title, e.location].filter(Boolean).join(' · '))}</p>
                </div>
                ${dateSpan(e.start_date, e.end_date, e.current_job)}
              </div>
-             ${e.note ? `<p style="${F}font-size:11px;font-style:italic;color:#64748b;line-height:1.5;margin:3px 0 2px;">${mdHtml(e.note)}</p>` : ''}
+             ${e.note ? `<p style="${F}font-size:11px;font-style:italic;color:#64748b;line-height:1.5;margin:4px 0 2px;">${mdHtml(e.note)}</p>` : ''}
              ${bulletList(e.bullets, 11.5)}
            </div>`).join('')}
        </div>` : '';
 
   const eduHtml = edus.length
-    ? `<div style="margin-bottom:14px;">
+    ? `<div style="margin-bottom:16px;">
          ${rightTitle('Education')}
          ${eduRows(edus)}
        </div>` : '';
 
   const projHtml = pros.length
-    ? `<div style="margin-bottom:14px;">
+    ? `<div style="margin-bottom:16px;">
          ${rightTitle('Notable Projects')}
          ${projRows(pros, { nameColor: '#4f46e5' })}
        </div>` : '';
 
   const certsHtml = certs.length
-    ? `<div style="margin-bottom:14px;">
+    ? `<div style="margin-bottom:16px;">
          ${rightTitle('Certifications & Training')}
          ${certRows(certs, { nameColor: '#1e293b', metaColor: '#6366f1' })}
        </div>` : '';
 
-  // Fixed SVG background: sidebar tint + decorative circle + separator line
-  // 0.45in margin = 43.2px; left column = 230px; sidebar edge ≈ 273px
+  // Fixed SVG: sidebar tint (0.08 opacity) + separator line; repeats on every PDF page
+  // 0.45in margin ≈ 43px; sidebar column = 230px → edge at 273px
   const bgSvg = `
   <svg style="position:fixed;top:-0.45in;left:-0.45in;width:calc(100% + 0.9in);height:calc(100% + 0.9in);z-index:-1;pointer-events:none;" viewBox="0 0 816 1056" preserveAspectRatio="xMinYMin slice" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="274" height="1056" fill="#6366f1" fill-opacity="0.05"/>
-    <circle cx="137" cy="130" r="100" fill="#6366f1" fill-opacity="0.08"/>
-    <line x1="274" y1="43" x2="274" y2="1013" stroke="#6366f1" stroke-width="0.5" stroke-opacity="0.3"/>
+    <rect x="0" y="0" width="274" height="1056" fill="#6366f1" fill-opacity="0.08"/>
+    <rect x="273.25" y="0" width="1.5" height="1056" fill="#6366f1" fill-opacity="0.18"/>
   </svg>`;
 
   const leftCol = `
-  <div style="padding-top:20px;padding-right:10px;position:relative;overflow:hidden;">
-    ${initial ? `<div aria-hidden="true" style="position:absolute;top:-18px;left:-25px;font-size:148px;font-weight:900;color:#6366f1;opacity:0.1;line-height:1;user-select:none;pointer-events:none;${F}">${esc(initial)}</div>` : ''}
-    <div style="position:relative;">
-      <h1 style="${F}font-size:22px;font-weight:900;color:#1e293b;margin:0;line-height:1.18;letter-spacing:-0.01em;">${esc(p.full_name || '')}</h1>
-      ${p.tagline ? `<div style="display:flex;align-items:center;gap:7px;margin-top:8px;">
-        <div style="width:20px;height:2px;background:#6366f1;border-radius:1px;flex-shrink:0;"></div>
-        <p style="${F}font-size:11.5px;color:#64748b;margin:0;font-weight:500;">${esc(p.tagline)}</p>
-      </div>` : ''}
-      ${p.subtitle ? `<p style="${F}font-size:11px;color:#94a3b8;margin:4px 0 0;">${esc(p.subtitle)}</p>` : ''}
+  <div style="padding-top:24px;padding-right:18px;padding-left:4px;position:relative;">
+    <div style="position:relative;margin-bottom:4px;min-height:80px;">
+      ${initial ? `<div aria-hidden="true" style="position:absolute;bottom:-14px;right:-10px;font-size:128px;font-weight:900;color:#6366f1;opacity:0.07;line-height:1;user-select:none;pointer-events:none;${F}">${esc(initial)}</div>` : ''}
+      <div style="position:relative;">
+        <h1 style="${F}font-size:21px;font-weight:900;color:#0f172a;margin:0;line-height:1.2;letter-spacing:-0.01em;">${esc(p.full_name || '')}</h1>
+        ${p.tagline ? `<p style="${F}font-size:11px;font-weight:600;color:#6366f1;margin:6px 0 0;line-height:1.4;">${esc(p.tagline)}</p>` : ''}
+        ${p.subtitle ? `<p style="${F}font-size:10.5px;color:#94a3b8;margin:3px 0 0;line-height:1.4;">${esc(p.subtitle)}</p>` : ''}
+      </div>
     </div>
-    ${contactItems.length ? sideTitle('Contact Info') + contactHtml : ''}
-    ${skls.length ? sideTitle('Technical Skills') + skillsHtml : ''}
+    ${contactItems.length ? sideTitle('Contact') + contactHtml : ''}
+    ${skls.length ? sideTitle('Skills') + skillsHtml : ''}
   </div>`;
 
   const rightCol = `
-  <div style="padding-top:20px;">
+  <div style="padding-top:24px;padding-right:4px;">
     ${summaryHtml}${highlightsHtml}${expHtml}${eduHtml}${projHtml}${certsHtml}
   </div>`;
 
   const body = `
   ${bgSvg}
-  <div style="display:grid;grid-template-columns:230px 1fr;gap:0 24px;">
+  <div style="display:grid;grid-template-columns:230px 1fr;gap:0 28px;">
     ${leftCol}
     ${rightCol}
   </div>`;

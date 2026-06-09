@@ -1844,13 +1844,12 @@ export function PrestigeBody({ resume, spacers = {} }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const FOLIO_L = 230; // left column width (px in content area)
-const FOLIO_G = 24;  // column gap
+const FOLIO_G = 28;  // column gap
 
 function FolioSidebarTitle({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '14px 0 8px' }}>
-      <div style={{ width: 18, height: 2, background: '#6366f1', borderRadius: 1, flexShrink: 0 }} />
-      <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: '#6366f1' }}>
+    <div style={{ marginTop: 18, marginBottom: 8 }}>
+      <span style={{ ...sans, fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#6366f1', display: 'block', paddingBottom: 5, borderBottom: '1px solid rgba(99,102,241,0.25)' }}>
         {children}
       </span>
     </div>
@@ -1859,9 +1858,8 @@ function FolioSidebarTitle({ children }) {
 
 function FolioContentTitle({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11, marginTop: 2 }}>
-      <div style={{ width: 26, height: 2.5, background: '#6366f1', borderRadius: 1.5, flexShrink: 0 }} />
-      <span style={{ ...sans, fontSize: 13, fontWeight: 700, color: '#6366f1' }}>
+    <div style={{ marginBottom: 12, marginTop: 2, paddingBottom: 6, borderBottom: '1.5px solid #e2e8f0' }}>
+      <span style={{ ...sans, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#334155' }}>
         {children}
       </span>
     </div>
@@ -1870,12 +1868,11 @@ function FolioContentTitle({ children }) {
 
 export function FolioPageBg({ accentColor }) {
   const c  = accentColor || '#6366f1';
-  const sw = 44 + FOLIO_L; // sidebar edge in page-card coords
+  const sw = 44 + FOLIO_L; // sidebar right edge in page-card coords (44px left pad + 230px col)
   return (
     <svg width={816} height={1056} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} aria-hidden="true">
-      <rect x="0" y="0" width={sw} height="1056" fill={c} fillOpacity="0.05" />
-      <circle cx={sw / 2} cy="130" r="100" fill={c} fillOpacity="0.08" />
-      <line x1={sw} y1="48" x2={sw} y2="1008" stroke={c} strokeWidth="0.5" strokeOpacity="0.3" />
+      <rect x="0" y="0" width={sw} height="1056" fill={c} fillOpacity="0.08" />
+      <rect x={sw - 0.75} y="0" width="1.5" height="1056" fill={c} fillOpacity="0.18" />
     </svg>
   );
 }
@@ -1904,60 +1901,70 @@ export function FolioBody({ resume, spacers = {} }) {
     <div style={{ display: 'grid', gridTemplateColumns: `${FOLIO_L}px 1fr`, gap: `0 ${FOLIO_G}px` }}>
 
       {/* ── LEFT SIDEBAR ── */}
-      <div style={{ paddingTop: 20, paddingRight: 10 }}>
-        {/* Name area with watermark initial behind it */}
-        <div style={{ position: 'relative', overflow: 'hidden', minHeight: 110, marginBottom: 6 }}>
+      <div style={{ paddingTop: 24, paddingRight: 18, paddingLeft: 4 }}>
+
+        {/* Name block — watermark initial floats at bottom-right of name area */}
+        <div style={{ position: 'relative', marginBottom: 4, minHeight: 80 }}>
           {initial && (
             <div aria-hidden="true" style={{
-              position: 'absolute', top: -18, left: -25,
-              fontSize: 148, fontWeight: 900, color: '#6366f1', opacity: 0.1,
-              lineHeight: 1, userSelect: 'none', pointerEvents: 'none',
+              position: 'absolute', bottom: -14, right: -10,
+              fontSize: 128, fontWeight: 900, lineHeight: 1,
+              color: '#6366f1', opacity: 0.07,
+              userSelect: 'none', pointerEvents: 'none',
             }}>
               {initial}
             </div>
           )}
           <div style={{ position: 'relative' }}>
-            <h1 style={{ ...sans, fontSize: 22, fontWeight: 900, color: '#1e293b', margin: 0, lineHeight: 1.18, letterSpacing: '-0.01em' }}>
+            <h1 style={{ ...sans, fontSize: 21, fontWeight: 900, color: '#0f172a', margin: 0, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
               {p.full_name || <span style={{ color: '#cbd5e1', fontWeight: 400 }}>Your Name</span>}
             </h1>
             {p.tagline && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
-                <div style={{ width: 20, height: 2, background: '#6366f1', borderRadius: 1, flexShrink: 0 }} />
-                <p style={{ ...sans, fontSize: 11.5, color: '#64748b', margin: 0, fontWeight: 500 }}>{p.tagline}</p>
-              </div>
+              <p style={{ ...sans, fontSize: 11, fontWeight: 600, color: '#6366f1', margin: '6px 0 0', lineHeight: 1.4 }}>
+                {p.tagline}
+              </p>
             )}
             {p.subtitle && (
-              <p style={{ ...sans, fontSize: 11, color: '#94a3b8', margin: '4px 0 0' }}>{p.subtitle}</p>
+              <p style={{ ...sans, fontSize: 10.5, color: '#94a3b8', margin: '3px 0 0', lineHeight: 1.4 }}>
+                {p.subtitle}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Contact Info */}
+        {/* Contact */}
         {contactItems.length > 0 && (
           <>
-            <FolioSidebarTitle>Contact Info</FolioSidebarTitle>
+            <FolioSidebarTitle>Contact</FolioSidebarTitle>
             {contactItems.map((item, i) => (
-              <p key={i} style={{ ...sans, fontSize: 10.5, color: '#475569', margin: '2px 0', lineHeight: 1.45, wordBreak: 'break-word' }}>
-                {item}
-              </p>
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                <div style={{ width: 3.5, height: 3.5, borderRadius: '50%', background: '#6366f1', opacity: 0.45, flexShrink: 0, marginTop: 5.5 }} />
+                <p style={{ ...sans, fontSize: 10.5, color: '#475569', margin: 0, lineHeight: 1.5, wordBreak: 'break-all' }}>
+                  {item}
+                </p>
+              </div>
             ))}
           </>
         )}
 
-        {/* Technical Skills */}
+        {/* Skills */}
         {skills.length > 0 && (
           <>
-            <FolioSidebarTitle>Technical Skills</FolioSidebarTitle>
+            <FolioSidebarTitle>Skills</FolioSidebarTitle>
             {skills.map((s, i) => (
-              <div key={i} style={{ marginBottom: 7 }}>
+              <div key={i} style={{ marginBottom: 9 }}>
                 {s.category && (
-                  <p style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: '#1e293b', margin: '0 0 1px' }}>
+                  <p style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: '#1e293b', margin: '0 0 4px' }}>
                     {s.category}
                   </p>
                 )}
-                <p style={{ ...sans, fontSize: 10.5, color: '#475569', margin: 0, lineHeight: 1.45 }}>
-                  {(s.items || []).join(', ')}
-                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 4px' }}>
+                  {(s.items || []).map((item, j) => (
+                    <span key={j} style={{ ...sans, fontSize: 9.5, color: '#4f46e5', background: 'rgba(99,102,241,0.09)', borderRadius: 3, padding: '2px 6px', lineHeight: 1.5, border: '0.5px solid rgba(99,102,241,0.15)' }}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </>
@@ -1965,13 +1972,14 @@ export function FolioBody({ resume, spacers = {} }) {
       </div>
 
       {/* ── RIGHT CONTENT ── */}
-      <div style={{ paddingTop: 20 }}>
-        {/* Summary — large accent-colored intro text, no section header */}
+      <div style={{ paddingTop: 24, paddingRight: 4 }}>
+
+        {/* Summary — accent left-border paragraph */}
         {p.summary && (
           <div style={{ marginBottom: 18 }}>
             {spacers['fsummary'] > 0 && <div style={{ height: spacers['fsummary'] }} />}
-            <div data-block="fsummary">
-              <p style={{ ...sans, fontSize: 13.5, lineHeight: 1.65, color: '#6366f1', fontWeight: 500, margin: 0 }}>
+            <div data-block="fsummary" style={{ paddingLeft: 12, borderLeft: '3px solid #6366f1', borderRadius: 1 }}>
+              <p style={{ ...sans, fontSize: 12, lineHeight: 1.68, color: '#374151', margin: 0 }}>
                 <InlineMarkdown text={p.summary} />
               </p>
             </div>
@@ -1980,15 +1988,15 @@ export function FolioBody({ resume, spacers = {} }) {
 
         {/* Career Highlights */}
         {highlights.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             {highlights.map((h, i) => (
               <Fragment key={i}>
                 {spacers[`fhighlight-${i}`] > 0 && <div style={{ height: spacers[`fhighlight-${i}`] }} />}
                 <div data-block={`fhighlight-${i}`} data-atomic="true">
-                  {i === 0 && <FolioContentTitle>Career highlights</FolioContentTitle>}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 7 }}>
-                    <span style={{ ...sans, fontSize: 11, color: '#94a3b8', flexShrink: 0, lineHeight: 1.6 }}>•</span>
-                    <span style={{ ...sans, fontSize: 13, lineHeight: 1.6, color: '#374151' }}>
+                  {i === 0 && <FolioContentTitle>Career Highlights</FolioContentTitle>}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                    <span style={{ ...sans, fontSize: 10, color: '#6366f1', flexShrink: 0, lineHeight: 1.65, marginTop: 0.5 }}>▸</span>
+                    <span style={{ ...sans, fontSize: 11.5, lineHeight: 1.65, color: '#374151' }}>
                       <InlineMarkdown text={h.text} />
                     </span>
                   </div>
@@ -2000,25 +2008,25 @@ export function FolioBody({ resume, spacers = {} }) {
 
         {/* Experience */}
         {exps.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             {exps.map((exp, i) => (
               <div key={exp.id || i}>
                 {spacers[`fexp-${i}`] > 0 && <div style={{ height: spacers[`fexp-${i}`] }} />}
-                <div data-block={`fexp-${i}`} style={{ marginBottom: 12 }}>
+                <div data-block={`fexp-${i}`} style={{ marginBottom: 13 }}>
                   {i === 0 && <FolioContentTitle>Experience</FolioContentTitle>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ ...sans, fontSize: 12.5, fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                      <p style={{ ...sans, fontSize: 12.5, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.005em' }}>
                         {exp.company}
                       </p>
-                      <p style={{ ...sans, fontSize: 11.5, color: '#6366f1', fontStyle: 'italic', margin: '1px 0 0' }}>
+                      <p style={{ ...sans, fontSize: 11.5, color: '#6366f1', fontWeight: 500, margin: '1px 0 0' }}>
                         {[exp.title, exp.location].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
                   {exp.note && (
-                    <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '3px 0 2px' }}>
+                    <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>
                       {exp.note}
                     </p>
                   )}
@@ -2031,15 +2039,15 @@ export function FolioBody({ resume, spacers = {} }) {
 
         {/* Education */}
         {edus.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             {edus.map((edu, i) => (
               <div key={edu.id || i}>
                 {spacers[`fedu-${i}`] > 0 && <div style={{ height: spacers[`fedu-${i}`] }} />}
-                <div data-block={`fedu-${i}`} data-atomic="true" style={{ marginBottom: 8 }}>
+                <div data-block={`fedu-${i}`} data-atomic="true" style={{ marginBottom: 10 }}>
                   {i === 0 && <FolioContentTitle>Education</FolioContentTitle>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: '#1e293b', margin: 0 }}>{edu.school}</p>
+                      <p style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: '#0f172a', margin: 0 }}>{edu.school}</p>
                       <p style={{ ...sans, fontSize: 11.5, color: '#64748b', margin: '1px 0 0' }}>
                         {[edu.degree, edu.field].filter(Boolean).join(', ')}
                         {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· GPA {edu.gpa}</span>}
@@ -2063,13 +2071,13 @@ export function FolioBody({ resume, spacers = {} }) {
 
         {/* Projects */}
         {projects.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             {projects.map((proj, i) => (
               <div key={proj.id || i}>
                 {spacers[`fproj-${i}`] > 0 && <div style={{ height: spacers[`fproj-${i}`] }} />}
                 <div data-block={`fproj-${i}`} style={{ marginBottom: 7 }}>
                   {i === 0 && <FolioContentTitle>Notable Projects</FolioContentTitle>}
-                  <ProjectEntry proj={proj} nameColor="#4f46e5" margin="0 0 5px" />
+                  <ProjectEntry proj={proj} nameColor="#4f46e5" margin="0 0 5px" fontSize={11.5} />
                 </div>
               </div>
             ))}
