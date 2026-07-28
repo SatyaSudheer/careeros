@@ -8,14 +8,25 @@ dist/
 client/dist/
 server/dist/
 
-# Local SQLite data
+# Local SQLite data — never commit either database.
+#   resumes.db          PERSONAL: resumes, jobs, notes, app_settings (LLM API key)
+#   careeros-shared.db  reference content only, but it is a DERIVED artifact:
+#                       server/questionBank.js is the source of truth and the
+#                       server reseeds it on boot. Committing the binary would
+#                       add churn and risk shipping a stale pre-checkpoint
+#                       snapshot, since SQLite WAL writes live in the ignored
+#                       -wal file until checkpointed.
 resumes.db
 resumes.db-*
 server/resumes.db
 server/resumes.db-*
+careeros-shared.db
+careeros-shared.db-*
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
 
 # Environment and local config
 .env

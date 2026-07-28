@@ -3,8 +3,9 @@ import { GraduationCap, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { api } from '../../api.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import SectionShell from './SectionShell.jsx';
+import MarkdownTextarea from './MarkdownTextarea.jsx';
 
-function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh }) {
+function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh, onItemChange }) {
   const [form, setForm] = useState(edu);
   const [open, setOpen] = useState(!edu.school);
 
@@ -19,6 +20,7 @@ function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh }) {
   const set = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
+    onItemChange?.(next);
     schedule(next);
   };
 
@@ -58,7 +60,7 @@ function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh }) {
 
       {open && (
         <div className="border-t border-slate-100 px-3 pb-4 pt-3 space-y-2.5 animate-slide-down">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
             <div className="col-span-2">
               <label className="field-label">School / University</label>
               <input value={form.school} onChange={e => set('school', e.target.value)}
@@ -96,12 +98,13 @@ function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh }) {
             </div>
             <div className="col-span-2">
               <label className="field-label">Honors / Coursework (optional)</label>
-              <textarea
+              <MarkdownTextarea
                 value={form.details}
-                onChange={e => set('details', e.target.value)}
+                onChange={value => set('details', value)}
                 placeholder="Dean's List, relevant coursework…"
-                rows={2}
-                className="input resize-none text-[13px] leading-relaxed"
+                rows={3}
+                className="resize-none text-[13px] leading-relaxed"
+                compact
               />
             </div>
           </div>
@@ -111,7 +114,7 @@ function EduCard({ resumeId, edu, onSaving, onSaved, onRefresh }) {
   );
 }
 
-export default function EducationSection({ resumeId, items, onSaving, onSaved, onRefresh }) {
+export default function EducationSection({ resumeId, items, onSaving, onSaved, onRefresh, onItemChange }) {
   const addNew = async () => {
     await api.education.create(resumeId, {});
     onRefresh?.();
@@ -121,7 +124,7 @@ export default function EducationSection({ resumeId, items, onSaving, onSaved, o
     <SectionShell title="Education" icon={GraduationCap} badge={items.length}>
       <div className="space-y-2">
         {items.map(edu => (
-          <EduCard key={edu.id} resumeId={resumeId} edu={edu} onSaving={onSaving} onSaved={onSaved} onRefresh={onRefresh} />
+          <EduCard key={edu.id} resumeId={resumeId} edu={edu} onSaving={onSaving} onSaved={onSaved} onRefresh={onRefresh} onItemChange={onItemChange} />
         ))}
         <button onClick={addNew} className="btn-add mt-1">
           <Plus className="h-3.5 w-3.5" />

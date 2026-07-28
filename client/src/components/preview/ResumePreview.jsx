@@ -12,7 +12,13 @@ const ACCENT_HEXES = new Set([
   '#6366f1', '#4f46e5', '#e0e7ff', '#eef2ff', '#c7d2fe', '#a5b4fc',
   '#1e293b', '#0f172a', '#334155',
   '#94a3b8', '#cbd5e1', '#e2e8f0',
+  // Theme-specific accents: leadership, editorial, technical, heritage,
+  // graduate, academic, swiss — so every theme follows the accent picker
+  '#1e3a8a', '#4a5568', '#1d4ed8', '#bfdbfe', '#7c2d12', '#9ca3af',
+  '#047857', '#a7f3d0', '#d1fae5', '#14532d', '#dc2626',
 ]);
+const LIGHT_TINTS = ['#e0e7ff', '#eef2ff', '#c7d2fe', '#e2e8f0', '#bfdbfe', '#a7f3d0', '#d1fae5'];
+const MID_TINTS   = ['#a5b4fc', '#94a3b8', '#cbd5e1', '#9ca3af'];
 
 function clampScale(value) {
   const n = Number(value);
@@ -32,8 +38,8 @@ function mapAccentColor(color, accent) {
   if (!accent || typeof color !== 'string') return color;
   const lower = color.toLowerCase();
   if (!ACCENT_HEXES.has(lower)) return color;
-  if (['#e0e7ff', '#eef2ff', '#c7d2fe', '#e2e8f0'].includes(lower)) return tint(accent, 0.86);
-  if (['#a5b4fc', '#94a3b8', '#cbd5e1'].includes(lower)) return tint(accent, 0.45);
+  if (LIGHT_TINTS.includes(lower)) return tint(accent, 0.86);
+  if (MID_TINTS.includes(lower)) return tint(accent, 0.45);
   return accent;
 }
 
@@ -44,9 +50,12 @@ function applyStyleAppearance(style, scale, accent) {
   ['color', 'background', 'backgroundColor', 'borderColor'].forEach(key => {
     if (next[key]) next[key] = mapAccentColor(next[key], accent);
   });
-  if (typeof next.border === 'string' && accent) {
-    ACCENT_HEXES.forEach(hex => {
-      next.border = next.border.replace(new RegExp(hex, 'ig'), mapAccentColor(hex, accent));
+  if (accent) {
+    ['border', 'borderTop', 'borderBottom', 'borderLeft', 'borderRight'].forEach(key => {
+      if (typeof next[key] !== 'string') return;
+      ACCENT_HEXES.forEach(hex => {
+        next[key] = next[key].replace(new RegExp(hex, 'ig'), mapAccentColor(hex, accent));
+      });
     });
   }
   return next;
@@ -60,6 +69,15 @@ function applyAppearance(node, scale, accent) {
     });
   }
   if (!isValidElement(node)) return node;
+  // Expand plain function components (theme subcomponents are pure, hook-free)
+  // so their internal styles also receive scale/accent — cloneElement alone
+  // cannot reach markup rendered inside them.
+  if (typeof node.type === 'function' && !node.type.prototype?.isReactComponent) {
+    const expanded = applyAppearance(node.type(node.props), scale, accent);
+    return isValidElement(expanded) && node.key != null && expanded.key == null
+      ? cloneElement(expanded, { key: node.key })
+      : expanded;
+  }
   const children = node.props.children ? applyAppearance(node.props.children, scale, accent) : node.props.children;
   return cloneElement(node, { style: applyStyleAppearance(node.props.style, scale, accent) }, children);
 }
@@ -70,7 +88,29 @@ function applyAppearance(node, scale, accent) {
 // from the page end caused company-header + note text to be clipped when the
 // block started earlier than the guard distance.
 
+// Ancestor CSS transforms (e.g. the scaled form-mode mini preview) shrink
+// bounding rects but not offset dimensions — divide the scale out so page
+// math always works in untransformed layout pixels.
+function rectScale(el) {
+  if (!el.offsetWidth) return 1;
+  return (el.getBoundingClientRect().width / el.offsetWidth) || 1;
+}
+
+// Bottom of the deepest visible content, excluding trailing margins (which
+// inflate scrollHeight and would otherwise produce a blank final page).
+function contentBottom(el) {
+  const scale = rectScale(el);
+  const top = el.getBoundingClientRect().top;
+  let max = 0;
+  for (const node of el.querySelectorAll('*')) {
+    const r = node.getBoundingClientRect();
+    if (r.height > 0) max = Math.max(max, r.bottom - top);
+  }
+  return max / scale;
+}
+
 function computeSpacers(el) {
+  const scale = rectScale(el);
   const containerRect = el.getBoundingClientRect();
   const blocks = Array.from(el.querySelectorAll('[data-block]'))
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
@@ -79,8 +119,8 @@ function computeSpacers(el) {
 
   blocks.forEach(block => {
     const rect = block.getBoundingClientRect();
-    const top = (rect.top - containerRect.top) + cumulative;
-    const h   = rect.height;
+    const top = (rect.top - containerRect.top) / scale + cumulative;
+    const h   = rect.height / scale;
 
     if (h >= CONTENT_H) return;
 
@@ -144,7 +184,7 @@ export default function ResumePreview({ resume }) {
       return;
     }
 
-    const n = Math.max(1, Math.ceil(spacedRef.current.scrollHeight / CONTENT_H));
+    const n = Math.max(1, Math.ceil((contentBottom(spacedRef.current) - 1) / CONTENT_H));
     if (n !== pageCount) setPageCount(n);
   });
 

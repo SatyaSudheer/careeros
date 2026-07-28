@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Briefcase, BookOpen, User, LayoutDashboard } from 'lucide-react';
+import { FileText, Briefcase, BookOpen, User, LayoutDashboard, Sparkles, Compass, Library } from 'lucide-react';
+import AiSettingsModal from './AiSettingsModal.jsx';
 
 const NAV = [
   { path: '/',      icon: LayoutDashboard, label: 'Dashboard',    exact: true },
   { path: '/jobs',  icon: Briefcase,       label: 'Job Tracker',  exact: false },
   { path: '/prep',  icon: BookOpen,        label: 'Prep Tracker', exact: false },
+  { path: '/questions', icon: Library,     label: 'Question Bank', exact: false },
+  { path: '/next-role', icon: Compass,     label: 'Next Role',    exact: false },
 ];
 
 const BOTTOM = [
@@ -32,6 +36,7 @@ function NavItem({ path, icon: Icon, label, exact }) {
 }
 
 export default function Sidebar() {
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   return (
     <aside className="flex h-screen w-[216px] flex-shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-14 items-center gap-2.5 border-b border-slate-100 px-4">
@@ -49,7 +54,16 @@ export default function Sidebar() {
 
       <div className="border-t border-slate-100 p-2 pb-3">
         {BOTTOM.map(item => <NavItem key={item.path} {...item} />)}
+        <button
+          onClick={() => setAiSettingsOpen(true)}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13.5px] font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
+        >
+          <Sparkles className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          AI Settings
+        </button>
       </div>
+
+      {aiSettingsOpen && <AiSettingsModal onClose={() => setAiSettingsOpen(false)} />}
     </aside>
   );
 }

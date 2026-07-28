@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Briefcase,
   Calendar,
   Check,
+  ChevronRight,
   ClipboardList,
+  CloudOff,
   ExternalLink,
   FileText,
   Link2,
   Loader2,
   Plus,
-  Save,
   Search,
   Target,
   Trash2,
@@ -18,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../api.js';
+import { useAutoSave } from '../hooks/useAutoSave.js';
 
 const STATUSES = [
   { value: 'saved', label: 'Saved' },
@@ -64,6 +66,88 @@ function metricCount(jobs, status) {
   return jobs.filter(job => job.status === status).length;
 }
 
+// Active pipeline stages (clickable stepper) + terminal outcomes
+const PIPELINE = ['saved', 'applied', 'screening', 'interview', 'offer'];
+const END_STATES = ['rejected', 'closed'];
+
+function SaveBadge({ state }) {
+  if (state === 'idle') return null;
+  if (state === 'pending' || state === 'saving') return (
+    <span className="save-badge save-badge-saving"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>
+  );
+  if (state === 'saved') return (
+    <span className="save-badge save-badge-saved"><Check className="h-3 w-3" /> Saved</span>
+  );
+  return (
+    <span className="save-badge save-badge-error"><CloudOff className="h-3 w-3" /> Save failed</span>
+  );
+}
+
+function FieldGroup({ title, hint, children }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">{title}</p>
+        {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StatusPipeline({ status, onChange }) {
+  const activeIdx = PIPELINE.indexOf(status);
+  const isEndState = END_STATES.includes(status);
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-5 py-3">
+      <div className="flex items-center">
+        {PIPELINE.map((value, i) => {
+          const label = STATUSES.find(s => s.value === value)?.label || value;
+          const isActive = i === activeIdx;
+          const isPast = activeIdx > -1 && i < activeIdx;
+          return (
+            <div key={value} className="flex items-center">
+              {i > 0 && <ChevronRight className="mx-0.5 h-3 w-3 text-slate-200" />}
+              <button
+                onClick={() => onChange(value)}
+                title={`Mark as ${label}`}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  isActive
+                    ? statusClasses(value) + ' ring-1 ring-current/20'
+                    : isPast
+                      ? 'border-indigo-100 bg-indigo-50/50 text-indigo-400 hover:text-indigo-600'
+                      : 'border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                }`}
+              >
+                {label}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="ml-auto flex items-center gap-1.5">
+        {END_STATES.map(value => {
+          const label = STATUSES.find(s => s.value === value)?.label || value;
+          return (
+            <button
+              key={value}
+              onClick={() => onChange(value)}
+              title={`Mark as ${label}`}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                status === value && isEndState
+                  ? statusClasses(value) + ' ring-1 ring-current/20'
+                  : 'border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function normalizeJob(job) {
   return {
     ...EMPTY_JOB,
@@ -104,6 +188,20 @@ export default function JobTracker() {
     [jobs, selectedId],
   );
 
+  // JD match scores for the selected job (computed server-side from the stored JD)
+  const [jdMatch, setJdMatch] = useState(null);
+  useEffect(() => {
+    if (!selectedId) { setJdMatch(null); return; }
+    let cancelled = false;
+    api.jobs.match(selectedId)
+      .then(data => { if (!cancelled) setJdMatch(data); })
+      .catch(() => { if (!cancelled) setJdMatch(null); });
+    return () => { cancelled = true; };
+  }, [selectedId, selectedJob?.updated_at]);
+
+  const hasJdKeywords = (jdMatch?.keywords?.length || 0) > 0;
+  const matchFor = (resumeId) => jdMatch?.matches?.find(m => m.resume_id === resumeId) || null;
+
   const filteredJobs = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return jobs;
@@ -114,13 +212,45 @@ export default function JobTracker() {
     );
   }, [filter, jobs]);
 
-  function selectJob(job) {
+  // ── Autosave ────────────────────────────────────────────────
+  // Field edits save automatically (debounced). Anything that refetches the
+  // job from the server flushes pending edits first, so nothing is lost when
+  // switching jobs, tagging resumes, or adding rounds.
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
+  const saveStateRef = useRef('idle');
+
+  const { schedule, flush, state: saveState } = useAutoSave(async (d) => {
+    const updated = await api.jobs.update(d.id, d);
+    // Update the list only — resetting the draft here would clobber keystrokes
+    // typed while the request was in flight.
+    setJobs(prev => prev.map(job => job.id === updated.id ? updated : job));
+  }, 700);
+  useEffect(() => { saveStateRef.current = saveState; }, [saveState]);
+
+  function updateDraft(patch) {
+    setDraft(prev => {
+      const next = { ...prev, ...patch };
+      if (next.id) schedule(next);
+      return next;
+    });
+  }
+
+  async function flushPending() {
+    if (saveStateRef.current === 'pending' && draftRef.current.id) {
+      await flush(draftRef.current);
+    }
+  }
+
+  async function selectJob(job) {
+    await flushPending();
     setSelectedId(job.id);
     setDraft(normalizeJob(job));
   }
 
   async function refreshJob(id = draft.id) {
     if (!id) return null;
+    await flushPending();
     const updated = await api.jobs.get(id);
     setJobs(prev => prev.map(job => job.id === updated.id ? updated : job));
     setDraft(normalizeJob(updated));
@@ -130,23 +260,13 @@ export default function JobTracker() {
   async function createJob() {
     setSaving(true);
     try {
+      await flushPending();
       const job = await api.jobs.create({
         status: 'saved',
       });
       setJobs(prev => [job, ...prev]);
-      selectJob(job);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function saveJob() {
-    if (!draft.id) return;
-    setSaving(true);
-    try {
-      const updated = await api.jobs.update(draft.id, draft);
-      setJobs(prev => prev.map(job => job.id === updated.id ? updated : job));
-      setDraft(normalizeJob(updated));
+      setSelectedId(job.id);
+      setDraft(normalizeJob(job));
     } finally {
       setSaving(false);
     }
@@ -160,7 +280,8 @@ export default function JobTracker() {
       const nextJobs = jobs.filter(job => job.id !== draft.id);
       setJobs(nextJobs);
       if (nextJobs[0]) {
-        selectJob(nextJobs[0]);
+        setSelectedId(nextJobs[0].id);
+        setDraft(normalizeJob(nextJobs[0]));
       } else {
         setSelectedId(null);
         setDraft(EMPTY_JOB);
@@ -172,6 +293,7 @@ export default function JobTracker() {
 
   async function toggleResume(resume) {
     if (!draft.id) return;
+    await flushPending();
     const attached = draft.resumes.some(item => item.id === resume.id);
     const updated = attached
       ? await api.jobs.detachResume(draft.id, resume.id).then(() => api.jobs.get(draft.id))
@@ -191,19 +313,26 @@ export default function JobTracker() {
     await refreshJob();
   }
 
-  function updateDraftRound(roundId, patch) {
-    setDraft(prev => ({
-      ...prev,
-      rounds: prev.rounds.map(round => round.id === roundId ? { ...round, ...patch } : round),
-    }));
-  }
+  // Rounds autosave — per-round debounce, same pattern as prep plan items
+  const roundTimers = useRef({});
+  useEffect(() => () => Object.values(roundTimers.current).forEach(clearTimeout), []);
 
-  async function saveRound(round) {
-    await api.jobs.rounds.update(draft.id, round.id, round);
-    await refreshJob();
+  function updateDraftRound(roundId, patch) {
+    setDraft(prev => {
+      const rounds = prev.rounds.map(round => round.id === roundId ? { ...round, ...patch } : round);
+      const next = rounds.find(round => round.id === roundId);
+      if (next && prev.id) {
+        clearTimeout(roundTimers.current[roundId]);
+        roundTimers.current[roundId] = setTimeout(() => {
+          api.jobs.rounds.update(prev.id, roundId, next).catch(() => {});
+        }, 700);
+      }
+      return { ...prev, rounds };
+    });
   }
 
   async function deleteRound(roundId) {
+    clearTimeout(roundTimers.current[roundId]);
     await api.jobs.rounds.delete(draft.id, roundId);
     await refreshJob();
   }
@@ -336,6 +465,7 @@ export default function JobTracker() {
                     <h2 className="truncate text-xl font-bold text-slate-900">{draft.title || 'Untitled role'}</h2>
                   </div>
                   <div className="flex items-center gap-2">
+                    <SaveBadge state={saveState} />
                     {draft.job_url && (
                       <a href={draft.job_url} target="_blank" rel="noreferrer" className="btn-secondary" title="Open JD">
                         <ExternalLink className="h-4 w-4" />
@@ -344,83 +474,83 @@ export default function JobTracker() {
                     <button onClick={deleteJob} disabled={saving} className="btn-ghost !text-red-500 hover:!bg-red-50" title="Delete">
                       <Trash2 className="h-4 w-4" />
                     </button>
-                    <button onClick={saveJob} disabled={saving} className="btn-primary">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save
-                    </button>
                   </div>
                 </div>
 
+                <StatusPipeline status={draft.status} onChange={value => updateDraft({ status: value })} />
+
                 <div className="grid gap-6 p-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="space-y-5">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label>
-                        <span className="field-label">Role</span>
-                        <input className="input" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Company</span>
-                        <input className="input" value={draft.company} onChange={e => setDraft({ ...draft, company: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Location</span>
-                        <input className="input" value={draft.location} onChange={e => setDraft({ ...draft, location: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Source</span>
-                        <input className="input" value={draft.source} onChange={e => setDraft({ ...draft, source: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Status</span>
-                        <select className="input" value={draft.status} onChange={e => setDraft({ ...draft, status: e.target.value })}>
-                          {STATUSES.map(status => <option key={status.value} value={status.value}>{status.label}</option>)}
-                        </select>
-                      </label>
-                      <label>
-                        <span className="field-label">JD URL</span>
-                        <input className="input" value={draft.job_url} onChange={e => setDraft({ ...draft, job_url: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Applied Date</span>
-                        <input type="date" className="input" value={draft.applied_date || ''} onChange={e => setDraft({ ...draft, applied_date: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Target Close Date</span>
-                        <input type="date" className="input" value={draft.closing_date || ''} onChange={e => setDraft({ ...draft, closing_date: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Contact Name</span>
-                        <input className="input" value={draft.contact_name} onChange={e => setDraft({ ...draft, contact_name: e.target.value })} />
-                      </label>
-                      <label>
-                        <span className="field-label">Contact Email</span>
-                        <input className="input" value={draft.contact_email} onChange={e => setDraft({ ...draft, contact_email: e.target.value })} />
-                      </label>
-                    </div>
+                    <FieldGroup title="Role & posting">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label>
+                          <span className="field-label">Role</span>
+                          <input className="input" value={draft.title} onChange={e => updateDraft({ title: e.target.value })} placeholder="Senior Software Engineer" />
+                        </label>
+                        <label>
+                          <span className="field-label">Company</span>
+                          <input className="input" value={draft.company} onChange={e => updateDraft({ company: e.target.value })} placeholder="Acme Corp" />
+                        </label>
+                        <label>
+                          <span className="field-label">Location</span>
+                          <input className="input" value={draft.location} onChange={e => updateDraft({ location: e.target.value })} placeholder="Remote · Bengaluru" />
+                        </label>
+                        <label>
+                          <span className="field-label">Source</span>
+                          <input className="input" value={draft.source} onChange={e => updateDraft({ source: e.target.value })} placeholder="LinkedIn, referral…" />
+                        </label>
+                        <label className="md:col-span-2">
+                          <span className="field-label">JD URL</span>
+                          <input className="input" value={draft.job_url} onChange={e => updateDraft({ job_url: e.target.value })} placeholder="https://…" />
+                        </label>
+                      </div>
+                    </FieldGroup>
 
-                    <label>
-                      <span className="field-label">Job Description</span>
+                    <FieldGroup title="Timeline & contacts">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label>
+                          <span className="field-label">Applied Date</span>
+                          <input type="date" className="input" value={draft.applied_date || ''} onChange={e => updateDraft({ applied_date: e.target.value })} />
+                        </label>
+                        <label>
+                          <span className="field-label">Target Close Date</span>
+                          <input type="date" className="input" value={draft.closing_date || ''} onChange={e => updateDraft({ closing_date: e.target.value })} />
+                        </label>
+                        <label>
+                          <span className="field-label">Contact Name</span>
+                          <input className="input" value={draft.contact_name} onChange={e => updateDraft({ contact_name: e.target.value })} placeholder="Recruiter / hiring manager" />
+                        </label>
+                        <label>
+                          <span className="field-label">Contact Email</span>
+                          <input className="input" value={draft.contact_email} onChange={e => updateDraft({ contact_email: e.target.value })} />
+                        </label>
+                      </div>
+                    </FieldGroup>
+
+                    <FieldGroup title="Job description" hint="Powers the JD-match scores on tagged resumes">
                       <textarea
                         className="input min-h-[240px] resize-y leading-6"
                         value={draft.description}
-                        onChange={e => setDraft({ ...draft, description: e.target.value })}
+                        onChange={e => updateDraft({ description: e.target.value })}
+                        placeholder="Paste the full job description here…"
                       />
-                    </label>
+                    </FieldGroup>
 
-                    <label>
-                      <span className="field-label">Closure Notes</span>
+                    <FieldGroup title="Closure notes">
                       <textarea
                         className="input min-h-[120px] resize-y leading-6"
                         value={draft.notes}
-                        onChange={e => setDraft({ ...draft, notes: e.target.value })}
+                        onChange={e => updateDraft({ notes: e.target.value })}
+                        placeholder="Outcome, learnings, follow-ups…"
                       />
-                    </label>
+                    </FieldGroup>
 
                     <section className="rounded-lg border border-slate-200 bg-white">
                       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                         <div className="flex items-center gap-2">
                           <ClipboardList className="h-4 w-4 text-indigo-500" />
                           <h3 className="text-[13px] font-semibold text-slate-900">Hiring Rounds</h3>
+                          <span className="text-[11px] text-slate-300">· saves automatically</span>
                         </div>
                         <button onClick={addRound} className="btn-secondary !py-1.5 !text-xs">
                           <Plus className="h-3.5 w-3.5" />
@@ -477,14 +607,10 @@ export default function JobTracker() {
                                 <textarea className="input min-h-[110px] resize-y leading-6" value={round.outcome} onChange={e => updateDraftRound(round.id, { outcome: e.target.value })} />
                               </label>
                             </div>
-                            <div className="mt-3 flex justify-end gap-2">
+                            <div className="mt-3 flex justify-end">
                               <button onClick={() => deleteRound(round.id)} className="btn-ghost !text-red-500 hover:!bg-red-50">
                                 <Trash2 className="h-3.5 w-3.5" />
                                 Delete
-                              </button>
-                              <button onClick={() => saveRound(round)} className="btn-secondary">
-                                <Save className="h-3.5 w-3.5" />
-                                Save Round
                               </button>
                             </div>
                           </div>
@@ -507,6 +633,14 @@ export default function JobTracker() {
                           </button>
                         ) : resumes.map(resume => {
                           const attached = draft.resumes.some(item => item.id === resume.id);
+                          const match = hasJdKeywords ? matchFor(resume.id) : null;
+                          const coverageClasses = match
+                            ? match.coverage >= 60
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                              : match.coverage >= 30
+                                ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                : 'bg-red-50 text-red-500 border-red-200'
+                            : '';
                           return (
                             <button
                               key={resume.id}
@@ -524,12 +658,62 @@ export default function JobTracker() {
                                 <span className="block truncate text-[12.5px] font-semibold text-slate-800">{resume.title}</span>
                                 <span className="block text-[11px] text-slate-400">{attached ? 'Tagged to this JD' : 'Available'}</span>
                               </span>
+                              {match && (
+                                <span className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${coverageClasses}`}>
+                                  {match.coverage}%
+                                </span>
+                              )}
                               {attached && <X className="h-3.5 w-3.5 text-slate-400" />}
                             </button>
                           );
                         })}
                       </div>
                     </div>
+
+                    {(() => {
+                      if (!jdMatch) return null;
+                      if (!hasJdKeywords) {
+                        return (
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-700">
+                              <Target className="h-4 w-4 text-slate-400" />
+                              JD Match
+                            </div>
+                            <p className="mt-2 text-[12px] text-slate-400">Add a job description above to see how each resume matches its keywords.</p>
+                          </div>
+                        );
+                      }
+                      const attachedMatches = (jdMatch.matches || []).filter(m => m.linked);
+                      const best = attachedMatches[0] || jdMatch.matches?.[0];
+                      if (!best) return null;
+                      return (
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-700">
+                              <Target className="h-4 w-4 text-indigo-500" />
+                              JD Match
+                            </div>
+                            <span className="text-[11px] text-slate-400">{jdMatch.keywords.length} keywords</span>
+                          </div>
+                          <p className="mt-2 text-[12px] text-slate-500">
+                            Best fit: <span className="font-semibold text-slate-700">{best.title}</span>
+                            <span className={`ml-1.5 font-bold ${best.coverage >= 60 ? 'text-emerald-600' : best.coverage >= 30 ? 'text-amber-600' : 'text-red-500'}`}>{best.coverage}%</span>
+                            {!best.linked && <span className="ml-1 text-slate-400">(not tagged yet)</span>}
+                          </p>
+                          {best.missing.length > 0 && (
+                            <div className="mt-2.5">
+                              <p className="mb-1 text-[11px] font-semibold text-slate-400">Missing from it:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {best.missing.slice(0, 8).map(kw => (
+                                  <span key={kw} className="rounded-full border border-red-100 bg-red-50 px-2 py-0.5 text-[10.5px] text-red-500">{kw}</span>
+                                ))}
+                                {best.missing.length > 8 && <span className="text-[10.5px] text-slate-400">+{best.missing.length - 8} more</span>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-700">

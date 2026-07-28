@@ -80,7 +80,7 @@ function TagInput({ items, onChange, placeholder = 'Add skill, press Enter or co
 
 // ── Skill group card ──────────────────────────────────────────────────────────
 
-function SkillCard({ resumeId, skill, onSaving, onSaved, onRefresh, isDragging, isOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
+function SkillCard({ resumeId, skill, onSaving, onSaved, onRefresh, onItemChange, isDragging, isOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const [category, setCategory] = useState(skill.category || '');
   const [items, setItems] = useState(skill.items || []);
 
@@ -94,11 +94,13 @@ function SkillCard({ resumeId, skill, onSaving, onSaved, onRefresh, isDragging, 
 
   const updateCategory = (val) => {
     setCategory(val);
+    onItemChange?.({ ...skill, category: val, items });
     schedule({ category: val, items });
   };
 
   const updateItems = (val) => {
     setItems(val);
+    onItemChange?.({ ...skill, category, items: val });
     schedule({ category, items: val });
   };
 
@@ -146,7 +148,7 @@ function SkillCard({ resumeId, skill, onSaving, onSaved, onRefresh, isDragging, 
 
 // ── Section ───────────────────────────────────────────────────────────────────
 
-export default function SkillsSection({ resumeId, items, onSaving, onSaved, onRefresh }) {
+export default function SkillsSection({ resumeId, items, onSaving, onSaved, onRefresh, onItemChange, onItemsChange }) {
   const [localItems, setLocalItems] = useState(items);
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
@@ -180,6 +182,7 @@ export default function SkillsSection({ resumeId, items, onSaving, onSaved, onRe
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     setLocalItems(next); // optimistic update
+    onItemsChange?.(next);
 
     await api.skills.reorder(resumeId, next.map(s => s.id));
   }, [dragId, localItems, resumeId]);
@@ -212,6 +215,7 @@ export default function SkillsSection({ resumeId, items, onSaving, onSaved, onRe
             onSaving={onSaving}
             onSaved={onSaved}
             onRefresh={onRefresh}
+            onItemChange={onItemChange}
             isDragging={dragId === skill.id}
             isOver={overId === skill.id}
             onDragStart={(e) => handleDragStart(skill.id, e)}

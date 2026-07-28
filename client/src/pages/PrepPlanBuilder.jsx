@@ -309,8 +309,9 @@ export default function PrepPlanBuilder() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!viewMode && planSaveState === 'saving' && <span className="text-[11px] text-amber-600">Saving...</span>}
-            {!viewMode && planSaveState === 'saved' && <span className="text-[11px] text-emerald-600">Saved</span>}
+            {!viewMode && (planSaveState === 'pending' || planSaveState === 'saving') && <span className="save-badge save-badge-saving"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}
+            {!viewMode && planSaveState === 'saved' && <span className="save-badge save-badge-saved"><CheckCircle2 className="h-3 w-3" /> Saved</span>}
+            {!viewMode && planSaveState === 'error' && <span className="save-badge save-badge-error"><AlertTriangle className="h-3 w-3" /> Save failed</span>}
             {viewMode ? (
               <button onClick={() => setSearchParams({ mode: 'edit' })} className="btn-primary text-[13px] !py-1.5">
                 <Edit3 className="h-3.5 w-3.5" />

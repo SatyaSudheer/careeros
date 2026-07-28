@@ -94,7 +94,7 @@ function DateLabel({ start, end, current }) {
   );
 }
 
-function Bullets({ items, spacers = {}, blockPrefix, dash = false, fontSize = 11.8 }) {
+function Bullets({ items, spacers = {}, blockPrefix, dash = false, fontSize = 11.8, font = serif, color = '#475569' }) {
   const filled = (items || []).filter(Boolean);
   if (!filled.length) return null;
   return (
@@ -109,7 +109,7 @@ function Bullets({ items, spacers = {}, blockPrefix, dash = false, fontSize = 11
                 ? <span style={{ ...sans, fontSize: 10, color: '#94a3b8', flexShrink: 0, lineHeight: 1.56 }}>–</span>
                 : <span style={{ ...sans, fontSize: 11, color: '#94a3b8', flexShrink: 0, lineHeight: 1.56 }}>•</span>
               }
-              <span style={{ ...serif, fontSize, lineHeight: 1.56, color: '#475569' }}><InlineMarkdown text={b} /></span>
+              <span style={{ ...font, fontSize, lineHeight: 1.56, color }}><InlineMarkdown text={b} /></span>
             </li>
           </Fragment>
         );
@@ -188,7 +188,7 @@ export function ClassicBody({ resume, spacers = {} }) {
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
                 </div>
               </div>
@@ -208,7 +208,7 @@ export function ClassicBody({ resume, spacers = {} }) {
                     <div>
                       <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#1e293b', margin: 0 }}>{edu.school}</p>
                       <p style={{ ...serif, fontSize: 11.8, color: '#64748b', margin: '1px 0 0' }}>{[edu.degree, edu.field].filter(Boolean).join(', ')}{edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 8 }}>· GPA {edu.gpa}</span>}</p>
-                      {edu.details && <p style={{ ...serif, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                      {edu.details && <p style={{ ...serif, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
                       <DateLabel start={edu.start_date} end={edu.end_date} />
@@ -342,7 +342,7 @@ export function ModernBody({ resume, spacers = {} }) {
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
                 </div>
               </div>
@@ -521,7 +521,7 @@ export function ExecutiveBody({ resume, spacers = {} }) {
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
                 </div>
               </div>
@@ -698,7 +698,7 @@ export function MinimalBody({ resume, spacers = {} }) {
                       {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
                     </span>
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 10.8, fontStyle: 'italic', color: '#64748b', lineHeight: 1.45, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 10.8, fontStyle: 'italic', color: '#64748b', lineHeight: 1.45, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} dash />
                 </div>
               </div>
@@ -951,7 +951,7 @@ export function LeadershipBody({ resume, spacers = {} }) {
                       {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
                     </span>
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <LeadershipBullets items={compactBullets(exp.bullets)} spacers={spacers} blockPrefix={`exp-${i}`} />
                 </div>
               </div>
@@ -1034,7 +1034,7 @@ export function LeadershipBody({ resume, spacers = {} }) {
                         {[edu.degree, edu.field].filter(Boolean).join(', ')}
                         {edu.gpa && <span style={{ color: MUTED, marginLeft: 8 }}>· GPA {edu.gpa}</span>}
                       </p>
-                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.details}</p>}
+                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
                       <span style={{ ...sans, fontSize: 10, color: MUTED, whiteSpace: 'nowrap' }}>
@@ -1181,7 +1181,7 @@ export function CompactBody({ resume, spacers = {} }) {
                       {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
                     </span>
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: MUTED, lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <LeadershipBullets items={compactBullets(exp.bullets)} spacers={spacers} blockPrefix={`exp-${i}`} fontSize={10.2} lineHeight={1.3} gap={2} />
                 </div>
               </div>
@@ -1261,7 +1261,7 @@ export function CompactBody({ resume, spacers = {} }) {
                         {[edu.degree, edu.field].filter(Boolean).join(', ')}
                         {edu.gpa && <span style={{ color: MUTED, marginLeft: 8 }}>· GPA {edu.gpa}</span>}
                       </p>
-                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}>{edu.details}</p>}
+                      {edu.details && <p style={{ ...sans, fontSize: 10, color: MUTED, margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
                       <span style={{ ...sans, fontSize: 10, color: MUTED, whiteSpace: 'nowrap' }}>
@@ -1473,7 +1473,7 @@ export function LuxeBody({ resume, spacers = {} }) {
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`exp-${i}`} />
                 </div>
               </div>
@@ -1497,7 +1497,7 @@ export function LuxeBody({ resume, spacers = {} }) {
                         {[edu.degree, edu.field].filter(Boolean).join(', ')}
                         {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 8 }}>· GPA {edu.gpa}</span>}
                       </p>
-                      {edu.details && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                      {edu.details && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
                       <DateLabel start={edu.start_date} end={edu.end_date} />
@@ -1729,7 +1729,7 @@ export function PrestigeBody({ resume, spacers = {} }) {
                     </div>
                     <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                   </div>
-                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>{exp.note}</p>}
+                  {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`pexp-${i}`} />
                 </div>
               </div>
@@ -1754,7 +1754,7 @@ export function PrestigeBody({ resume, spacers = {} }) {
                         {[edu.degree, edu.field].filter(Boolean).join(', ')}
                         {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 8 }}>· GPA {edu.gpa}</span>}
                       </p>
-                      {edu.details && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                      {edu.details && <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
                       <DateLabel start={edu.start_date} end={edu.end_date} />
@@ -2027,7 +2027,7 @@ export function FolioBody({ resume, spacers = {} }) {
                   </div>
                   {exp.note && (
                     <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}>
-                      {exp.note}
+                        <InlineMarkdown text={exp.note} />
                     </p>
                   )}
                   <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`fexp-${i}`} fontSize={11.5} />
@@ -2053,7 +2053,7 @@ export function FolioBody({ resume, spacers = {} }) {
                         {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· GPA {edu.gpa}</span>}
                       </p>
                       {edu.details && (
-                        <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>
+                        <p style={{ ...sans, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>
                       )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 8 }}>
@@ -2190,7 +2190,7 @@ export function EditorialBody({ resume, spacers = {} }) {
                   </div>
                   <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                 </div>
-                {exp.note && <p style={{ ...edSerif, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '3px 0 2px' }}>{exp.note}</p>}
+                {exp.note && <p style={{ ...edSerif, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '3px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                 <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`edexp-${i}`} fontSize={11.5} />
               </div>
             </div>
@@ -2212,7 +2212,7 @@ export function EditorialBody({ resume, spacers = {} }) {
                       {[edu.degree, edu.field].filter(Boolean).join(', ')}
                       {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· GPA {edu.gpa}</span>}
                     </p>
-                    {edu.details && <p style={{ ...edSerif, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                    {edu.details && <p style={{ ...edSerif, fontSize: 11, color: '#94a3b8', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 8 }}>
                     <DateLabel start={edu.start_date} end={edu.end_date} />
@@ -2371,7 +2371,7 @@ export function TechnicalBody({ resume, spacers = {} }) {
                   </div>
                   <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                 </div>
-                {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '3px 0 2px' }}>{exp.note}</p>}
+                {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '3px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                 <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`tcexp-${i}`} fontSize={11.5} />
               </div>
             </div>
@@ -2527,7 +2527,7 @@ export function HeritageBody({ resume, spacers = {} }) {
                   </div>
                   <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
                 </div>
-                {exp.note && <p style={{ ...hgSerif, fontSize: 11.5, fontStyle: 'italic', color: '#78716C', lineHeight: 1.5, margin: '3px 0 2px' }}>{exp.note}</p>}
+                {exp.note && <p style={{ ...hgSerif, fontSize: 11.5, fontStyle: 'italic', color: '#78716C', lineHeight: 1.5, margin: '3px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
                 <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`hgexp-${i}`} fontSize={12} />
               </div>
             </div>
@@ -2549,7 +2549,7 @@ export function HeritageBody({ resume, spacers = {} }) {
                       {[edu.degree, edu.field].filter(Boolean).join(', ')}
                       {edu.gpa && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· GPA {edu.gpa}</span>}
                     </p>
-                    {edu.details && <p style={{ ...hgSerif, fontSize: 11, color: '#78716C', fontStyle: 'italic', margin: '2px 0 0' }}>{edu.details}</p>}
+                    {edu.details && <p style={{ ...hgSerif, fontSize: 11, color: '#78716C', fontStyle: 'italic', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 8 }}>
                     <DateLabel start={edu.start_date} end={edu.end_date} />
@@ -2609,6 +2609,443 @@ export function HeritageBody({ resume, spacers = {} }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// GRADUATE THEME  — new grads & early career: education and projects lead
+// ══════════════════════════════════════════════════════════════════════════════
+
+const GRAD_GREEN = '#047857';
+
+function GraduateSectionTitle({ children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, marginTop: 2 }}>
+      <span style={{ ...sans, fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.16em', color: GRAD_GREEN, whiteSpace: 'nowrap' }}>{children}</span>
+      <div style={{ flex: 1, height: 1, background: '#a7f3d0' }} />
+    </div>
+  );
+}
+
+export function GraduateBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+  const contactParts = [p.email, p.phone, p.location, p.website && urlDisplay(p.website), p.linkedin && urlDisplay(p.linkedin), p.github && urlDisplay(p.github)].filter(Boolean);
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 14, borderBottom: `2px solid ${GRAD_GREEN}`, paddingBottom: 12 }}>
+        <h1 style={{ ...sans, fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+          {p.full_name || <span style={{ color: '#d1fae5', fontWeight: 400, fontStyle: 'italic', fontSize: 18 }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...sans, fontSize: 12, fontWeight: 600, color: GRAD_GREEN, margin: '4px 0 0' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...sans, fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>{p.subtitle}</p>}
+        {contactParts.length > 0 && (
+          <p style={{ ...sans, fontSize: 10.2, color: '#475569', margin: '7px 0 0', lineHeight: 1.4 }}>{contactParts.join('  ·  ')}</p>
+        )}
+      </div>
+
+      {p.summary && (
+        <div style={{ marginBottom: 13 }}>
+          {spacers['grsummary'] > 0 && <div style={{ height: spacers['grsummary'] }} />}
+          <div data-block="grsummary">
+            <GraduateSectionTitle>Summary</GraduateSectionTitle>
+            <p style={{ ...sans, fontSize: 11.8, lineHeight: 1.55, color: '#374151', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+          </div>
+        </div>
+      )}
+
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          <GraduateSectionTitle>Highlights</GraduateSectionTitle>
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={11.8} color="#374151" />
+        </div>
+      )}
+
+      {/* Education first — the strongest signal early-career */}
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {edus.map((edu, i) => (
+            <div key={edu.id || i}>
+              {spacers[`gredu-${i}`] > 0 && <div style={{ height: spacers[`gredu-${i}`] }} />}
+              <div data-block={`gredu-${i}`} data-atomic="true" style={{ marginBottom: 9 }}>
+                {i === 0 && <GraduateSectionTitle>Education</GraduateSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ ...sans, fontSize: 12.2, fontWeight: 700, color: '#0f172a', margin: 0 }}>{edu.school}</p>
+                    <p style={{ ...sans, fontSize: 11.5, color: '#374151', margin: '1px 0 0' }}>
+                      {[edu.degree, edu.field].filter(Boolean).join(', ')}
+                      {edu.gpa && <span style={{ color: GRAD_GREEN, fontWeight: 600, marginLeft: 8 }}>GPA {edu.gpa}</span>}
+                    </p>
+                    {edu.details && <p style={{ ...sans, fontSize: 10.8, color: '#64748b', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 12 }}>
+                    <DateLabel start={edu.start_date} end={edu.end_date} />
+                    {edu.location && <p style={{ ...sans, fontSize: 10.2, color: '#94a3b8', margin: '2px 0 0' }}>{edu.location}</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {skills.map((s, i) => (
+            <div key={s.id || i}>
+              {spacers[`grskill-${i}`] > 0 && <div style={{ height: spacers[`grskill-${i}`] }} />}
+              <div data-block={`grskill-${i}`}>
+                {i === 0 && <GraduateSectionTitle>Skills</GraduateSectionTitle>}
+                <div style={{ display: 'flex', gap: 8, fontSize: 11.5, marginBottom: 4 }}>
+                  {s.category && <span style={{ ...sans, fontWeight: 700, color: '#0f172a', minWidth: 96, flexShrink: 0 }}>{s.category}</span>}
+                  <span style={{ ...sans, color: '#374151', flex: 1 }}>{(s.items || []).join(', ')}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Projects before experience — grads are judged on what they built */}
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {projects.map((proj, i) => (
+            <div key={proj.id || i}>
+              {spacers[`grproj-${i}`] > 0 && <div style={{ height: spacers[`grproj-${i}`] }} />}
+              <div data-block={`grproj-${i}`} style={{ marginBottom: 6 }}>
+                {i === 0 && <GraduateSectionTitle>Projects</GraduateSectionTitle>}
+                <ProjectEntry proj={proj} nameColor={GRAD_GREEN} descColor="#374151" fontSize={11.5} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {exps.map((exp, i) => (
+            <div key={exp.id || i}>
+              {spacers[`grexp-${i}`] > 0 && <div style={{ height: spacers[`grexp-${i}`] }} />}
+              <div data-block={`grexp-${i}`} style={{ marginBottom: 10 }}>
+                {i === 0 && <GraduateSectionTitle>Experience</GraduateSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ ...sans, fontSize: 12, fontWeight: 700, color: '#0f172a', margin: 0 }}>{exp.title}</p>
+                    <p style={{ ...sans, fontSize: 11.2, color: GRAD_GREEN, fontWeight: 500, margin: '1px 0 0' }}>{[exp.company, exp.location].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
+                </div>
+                {exp.note && <p style={{ ...sans, fontSize: 11, fontStyle: 'italic', color: '#64748b', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
+                <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`grexp-${i}`} fontSize={11.5} color="#374151" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <CertGroups certs={certs} spacers={spacers} header={<GraduateSectionTitle>Certifications &amp; Training</GraduateSectionTitle>} nameColor="#0f172a" issuerColor={GRAD_GREEN} yearColor="#94a3b8" fontSize={11.2} />
+      )}
+
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#d1fae5', ...sans, fontSize: 12.2 }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACADEMIC THEME  — research, faculty, PhD & scientist roles (CV style)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const acSerif = { fontFamily: "'Georgia', 'Garamond', 'Times New Roman', serif" };
+const AC_GREEN = '#14532D';
+
+function AcademicSectionTitle({ children }) {
+  return (
+    <div style={{ borderBottom: `1px solid ${AC_GREEN}`, paddingBottom: 3, marginBottom: 9, marginTop: 2 }}>
+      <span style={{ ...acSerif, fontSize: 12, fontWeight: 700, fontVariant: 'small-caps', letterSpacing: '0.1em', color: AC_GREEN }}>{children}</span>
+    </div>
+  );
+}
+
+export function AcademicBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+  const contactParts = [p.email, p.phone, p.location, p.website && urlDisplay(p.website), p.linkedin && urlDisplay(p.linkedin), p.github && urlDisplay(p.github)].filter(Boolean);
+
+  return (
+    <>
+      {/* Header — centered, formal CV */}
+      <div style={{ textAlign: 'center', marginBottom: 16 }}>
+        <h1 style={{ ...acSerif, fontSize: 25, fontWeight: 600, fontVariant: 'small-caps', color: '#1C1917', margin: 0, lineHeight: 1.15, letterSpacing: '0.03em' }}>
+          {p.full_name || <span style={{ color: '#d6d3d1', fontStyle: 'italic' }}>Your Name</span>}
+        </h1>
+        {p.tagline && <p style={{ ...acSerif, fontSize: 12.5, fontStyle: 'italic', color: '#57534E', margin: '5px 0 0' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...acSerif, fontSize: 11, color: '#78716C', margin: '2px 0 0' }}>{p.subtitle}</p>}
+        {contactParts.length > 0 && (
+          <p style={{ ...acSerif, fontSize: 10.5, color: '#57534E', margin: '7px 0 0', lineHeight: 1.4 }}>{contactParts.join('   ·   ')}</p>
+        )}
+        <div style={{ height: 1, background: AC_GREEN, margin: '12px auto 0', maxWidth: 460, opacity: 0.5 }} />
+      </div>
+
+      {p.summary && (
+        <div style={{ marginBottom: 14 }}>
+          {spacers['acsummary'] > 0 && <div style={{ height: spacers['acsummary'] }} />}
+          <div data-block="acsummary">
+            <AcademicSectionTitle>Research Profile</AcademicSectionTitle>
+            <p style={{ ...acSerif, fontSize: 11.5, lineHeight: 1.62, color: '#1C1917', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+          </div>
+        </div>
+      )}
+
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <AcademicSectionTitle>Selected Achievements</AcademicSectionTitle>
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={11.5} font={acSerif} color="#1C1917" />
+        </div>
+      )}
+
+      {/* Education first — academia leads with credentials */}
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          {edus.map((edu, i) => (
+            <div key={edu.id || i}>
+              {spacers[`acedu-${i}`] > 0 && <div style={{ height: spacers[`acedu-${i}`] }} />}
+              <div data-block={`acedu-${i}`} data-atomic="true" style={{ marginBottom: 9 }}>
+                {i === 0 && <AcademicSectionTitle>Education</AcademicSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ ...acSerif, fontSize: 12.5, fontWeight: 700, color: '#1C1917', margin: 0 }}>{edu.school}</p>
+                    <p style={{ ...acSerif, fontSize: 11.5, fontStyle: 'italic', color: '#57534E', margin: '1px 0 0' }}>
+                      {[edu.degree, edu.field].filter(Boolean).join(', ')}
+                      {edu.gpa && <span style={{ color: '#78716C', marginLeft: 8 }}>· GPA {edu.gpa}</span>}
+                    </p>
+                    {edu.details && <p style={{ ...acSerif, fontSize: 11, color: '#78716C', margin: '2px 0 0' }}><InlineMarkdown text={edu.details} /></p>}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 8 }}>
+                    <DateLabel start={edu.start_date} end={edu.end_date} />
+                    {edu.location && <p style={{ ...sans, fontSize: 10.2, color: '#94a3b8', margin: '2px 0 0' }}>{edu.location}</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Projects framed as research output */}
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          {projects.map((proj, i) => (
+            <div key={proj.id || i}>
+              {spacers[`acproj-${i}`] > 0 && <div style={{ height: spacers[`acproj-${i}`] }} />}
+              <div data-block={`acproj-${i}`} style={{ marginBottom: 6 }}>
+                {i === 0 && <AcademicSectionTitle>Research &amp; Publications</AcademicSectionTitle>}
+                <p style={{ ...acSerif, fontSize: 11.5, lineHeight: 1.6, color: '#1C1917', margin: 0 }}>
+                  <strong style={{ color: AC_GREEN }}>{proj.name}</strong>
+                  {proj.description && <>{' '}<InlineMarkdown text={proj.description} /></>}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          {exps.map((exp, i) => (
+            <div key={exp.id || i}>
+              {spacers[`acexp-${i}`] > 0 && <div style={{ height: spacers[`acexp-${i}`] }} />}
+              <div data-block={`acexp-${i}`} style={{ marginBottom: 11 }}>
+                {i === 0 && <AcademicSectionTitle>Appointments &amp; Experience</AcademicSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ ...acSerif, fontSize: 12.5, fontWeight: 700, color: '#1C1917', margin: 0 }}>{exp.title}</p>
+                    <p style={{ ...acSerif, fontSize: 11.5, fontStyle: 'italic', color: '#57534E', margin: '1px 0 0' }}>{[exp.company, exp.location].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <DateLabel start={exp.start_date} end={exp.end_date} current={exp.current_job} />
+                </div>
+                {exp.note && <p style={{ ...acSerif, fontSize: 11, fontStyle: 'italic', color: '#78716C', lineHeight: 1.5, margin: '3px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
+                <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`acexp-${i}`} fontSize={11.5} font={acSerif} color="#1C1917" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          {skills.map((s, i) => (
+            <div key={s.id || i}>
+              {spacers[`acskill-${i}`] > 0 && <div style={{ height: spacers[`acskill-${i}`] }} />}
+              <div data-block={`acskill-${i}`}>
+                {i === 0 && <AcademicSectionTitle>Skills &amp; Methods</AcademicSectionTitle>}
+                <div style={{ display: 'flex', gap: 10, marginBottom: 5 }}>
+                  {s.category && <span style={{ ...acSerif, fontSize: 11.5, fontWeight: 700, fontVariant: 'small-caps', color: AC_GREEN, minWidth: 96, flexShrink: 0 }}>{s.category}</span>}
+                  <span style={{ ...acSerif, fontSize: 11.5, color: '#1C1917', flex: 1 }}>{(s.items || []).join(', ')}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <CertGroups certs={certs} spacers={spacers} header={<AcademicSectionTitle>Honors &amp; Certifications</AcademicSectionTitle>} nameColor="#1C1917" issuerColor="#57534E" yearColor="#78716C" fontSize={11.2} />
+      )}
+
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#d6d3d1', ...acSerif, fontSize: 12.2, fontStyle: 'italic' }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SWISS THEME  — international typographic style: black, red, precise grid
+// ══════════════════════════════════════════════════════════════════════════════
+
+const swHelv = { fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" };
+const SW_RED = '#DC2626';
+const SW_INK = '#111111';
+
+function SwissSectionTitle({ children }) {
+  return (
+    <div style={{ marginBottom: 9, marginTop: 2 }}>
+      <div style={{ height: 2, background: SW_INK, marginBottom: 5 }} />
+      <span style={{ ...swHelv, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.22em', color: SW_INK }}>{children}</span>
+    </div>
+  );
+}
+
+export function SwissBody({ resume, spacers = {} }) {
+  const p = resume.personal || {}, highlights = resume.highlights || [], exps = resume.experiences || [], edus = resume.education || [], skills = resume.skills || [], projects = resume.projects || [], certs = resume.certifications || [];
+  const isEmpty = !p.full_name && !highlights.length && !exps.length && !edus.length && !skills.length && !projects.length;
+  const contactParts = [p.email, p.phone, p.location, p.website && urlDisplay(p.website), p.linkedin && urlDisplay(p.linkedin), p.github && urlDisplay(p.github)].filter(Boolean);
+
+  return (
+    <>
+      {/* Header — flush left, red counterpoint */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ width: 10, height: 10, background: SW_RED, flexShrink: 0, marginTop: 8 }} />
+          <h1 style={{ ...swHelv, fontSize: 24, fontWeight: 800, textTransform: 'uppercase', color: SW_INK, margin: 0, letterSpacing: '0.04em', lineHeight: 1.1 }}>
+            {p.full_name || <span style={{ color: '#e5e5e5', fontWeight: 400, textTransform: 'none', fontStyle: 'italic', fontSize: 18 }}>Your Name</span>}
+          </h1>
+        </div>
+        {p.tagline && <p style={{ ...swHelv, fontSize: 11.5, fontWeight: 600, color: SW_RED, margin: '6px 0 0', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{p.tagline}</p>}
+        {p.subtitle && <p style={{ ...swHelv, fontSize: 10.8, color: '#525252', margin: '3px 0 0' }}>{p.subtitle}</p>}
+        {contactParts.length > 0 && (
+          <p style={{ ...swHelv, fontSize: 10, color: '#404040', margin: '8px 0 0', letterSpacing: '0.03em', lineHeight: 1.45 }}>
+            {contactParts.join('   /   ')}
+          </p>
+        )}
+      </div>
+
+      {p.summary && (
+        <div style={{ marginBottom: 13 }}>
+          {spacers['swsummary'] > 0 && <div style={{ height: spacers['swsummary'] }} />}
+          <div data-block="swsummary">
+            <SwissSectionTitle>Profile</SwissSectionTitle>
+            <p style={{ ...swHelv, fontSize: 11.5, lineHeight: 1.55, color: '#262626', margin: 0 }}><InlineMarkdown text={p.summary} /></p>
+          </div>
+        </div>
+      )}
+
+      {highlights.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          <SwissSectionTitle>Highlights</SwissSectionTitle>
+          <Bullets items={highlights.map(h => h.text)} spacers={spacers} blockPrefix="highlight" fontSize={11.5} font={swHelv} color="#262626" />
+        </div>
+      )}
+
+      {exps.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {exps.map((exp, i) => (
+            <div key={exp.id || i}>
+              {spacers[`swexp-${i}`] > 0 && <div style={{ height: spacers[`swexp-${i}`] }} />}
+              <div data-block={`swexp-${i}`} style={{ marginBottom: 11 }}>
+                {i === 0 && <SwissSectionTitle>Experience</SwissSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ ...swHelv, fontSize: 12, fontWeight: 800, color: SW_INK, margin: 0, letterSpacing: '0.01em' }}>{exp.company}</p>
+                    <p style={{ ...swHelv, fontSize: 11, fontWeight: 500, color: SW_RED, margin: '1px 0 0' }}>{[exp.title, exp.location].filter(Boolean).join(' — ')}</p>
+                  </div>
+                  <span style={{ ...swHelv, fontSize: 10, fontWeight: 600, color: '#737373', whiteSpace: 'nowrap', flexShrink: 0, paddingLeft: 12, letterSpacing: '0.04em' }}>
+                    {[exp.start_date, exp.current_job ? 'Present' : exp.end_date].filter(Boolean).join(' – ')}
+                  </span>
+                </div>
+                {exp.note && <p style={{ ...swHelv, fontSize: 10.8, fontStyle: 'italic', color: '#525252', lineHeight: 1.5, margin: '4px 0 2px' }}><InlineMarkdown text={exp.note} /></p>}
+                <Bullets items={exp.bullets} spacers={spacers} blockPrefix={`swexp-${i}`} fontSize={11.2} font={swHelv} color="#262626" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {edus.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {edus.map((edu, i) => (
+            <div key={edu.id || i}>
+              {spacers[`swedu-${i}`] > 0 && <div style={{ height: spacers[`swedu-${i}`] }} />}
+              <div data-block={`swedu-${i}`} data-atomic="true" style={{ marginBottom: 8 }}>
+                {i === 0 && <SwissSectionTitle>Education</SwissSectionTitle>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ ...swHelv, fontSize: 12, fontWeight: 800, color: SW_INK, margin: 0 }}>{edu.school}</p>
+                    <p style={{ ...swHelv, fontSize: 11, color: '#404040', margin: '1px 0 0' }}>
+                      {[edu.degree, edu.field].filter(Boolean).join(', ')}
+                      {edu.gpa && <span style={{ color: '#737373', marginLeft: 8 }}>· GPA {edu.gpa}</span>}
+                    </p>
+                  </div>
+                  <span style={{ ...swHelv, fontSize: 10, fontWeight: 600, color: '#737373', whiteSpace: 'nowrap', flexShrink: 0, paddingLeft: 12 }}>
+                    {[edu.start_date, edu.end_date].filter(Boolean).join(' – ')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {skills.map((s, i) => (
+            <div key={s.id || i}>
+              {spacers[`swskill-${i}`] > 0 && <div style={{ height: spacers[`swskill-${i}`] }} />}
+              <div data-block={`swskill-${i}`}>
+                {i === 0 && <SwissSectionTitle>Competencies</SwissSectionTitle>}
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', columnGap: 10, alignItems: 'baseline', marginBottom: 5 }}>
+                  {s.category
+                    ? <span style={{ ...swHelv, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: SW_INK }}>{s.category}</span>
+                    : <span />}
+                  <span style={{ ...swHelv, fontSize: 11.2, color: '#262626' }}>{(s.items || []).join(' / ')}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {projects.length > 0 && (
+        <div style={{ marginBottom: 13 }}>
+          {projects.map((proj, i) => (
+            <div key={proj.id || i}>
+              {spacers[`swproj-${i}`] > 0 && <div style={{ height: spacers[`swproj-${i}`] }} />}
+              <div data-block={`swproj-${i}`} style={{ marginBottom: 6 }}>
+                {i === 0 && <SwissSectionTitle>Projects</SwissSectionTitle>}
+                <ProjectEntry proj={proj} nameColor={SW_INK} descColor="#262626" fontSize={11.2} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {certs.length > 0 && (
+        <CertGroups certs={certs} spacers={spacers} header={<SwissSectionTitle>Certifications</SwissSectionTitle>} nameColor={SW_INK} issuerColor="#525252" yearColor="#737373" fontSize={11} />
+      )}
+
+      {isEmpty && <div style={{ textAlign: 'center', paddingTop: 80, color: '#e5e5e5', ...swHelv, fontSize: 12.2 }}>Fill in your details on the left →</div>}
+    </>
+  );
+}
+
 // ── Theme registry ─────────────────────────────────────────────────────────────
 
 export const THEMES = {
@@ -2624,6 +3061,9 @@ export const THEMES = {
   editorial:  { label: 'Editorial',  description: 'Serif, creative & media roles', accent: '#4A5568', body: null, pageBg: null },
   technical:  { label: 'Technical',  description: 'Engineering & data precision',  accent: '#1D4ED8', body: null, pageBg: null },
   heritage:   { label: 'Heritage',   description: 'Classical, finance & law',      accent: '#7C2D12', body: null, pageBg: null },
+  graduate:   { label: 'Graduate',   description: 'New grads · education first',   accent: '#047857', body: null, pageBg: null },
+  academic:   { label: 'Academic',   description: 'Research CV, publications',     accent: '#14532D', body: null, pageBg: null },
+  swiss:      { label: 'Swiss',      description: 'Typographic, black & red grid', accent: '#DC2626', body: null, pageBg: null },
 };
 // body refs set after declarations to avoid hoisting issues
 THEMES.classic.body    = ClassicBody;
@@ -2641,6 +3081,9 @@ THEMES.folio.pageBg    = FolioPageBg;
 THEMES.editorial.body  = EditorialBody;
 THEMES.technical.body  = TechnicalBody;
 THEMES.heritage.body   = HeritageBody;
+THEMES.graduate.body   = GraduateBody;
+THEMES.academic.body   = AcademicBody;
+THEMES.swiss.body      = SwissBody;
 
 export function getThemeBody(name) {
   return THEMES[name]?.body ?? ClassicBody;

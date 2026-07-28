@@ -3,8 +3,9 @@ import { Award, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../api.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import SectionShell from './SectionShell.jsx';
+import MarkdownTextarea from './MarkdownTextarea.jsx';
 
-function HighlightCard({ resumeId, item, onSaving, onSaved, onRefresh }) {
+function HighlightCard({ resumeId, item, onSaving, onSaved, onRefresh, onItemChange }) {
   const [text, setText] = useState(item.text || '');
 
   const saveFn = useCallback(async (value) => {
@@ -17,6 +18,7 @@ function HighlightCard({ resumeId, item, onSaving, onSaved, onRefresh }) {
 
   const update = (value) => {
     setText(value);
+    onItemChange?.({ ...item, text: value });
     schedule(value);
   };
 
@@ -29,12 +31,14 @@ function HighlightCard({ resumeId, item, onSaving, onSaved, onRefresh }) {
   return (
     <div className="item-card px-3 py-3">
       <div className="flex items-start gap-2">
-        <textarea
+        <MarkdownTextarea
           value={text}
-          onChange={e => update(e.target.value)}
+          onChange={update}
           placeholder="Led a platform modernization that improved release quality by 30%."
-          rows={2}
-          className="input flex-1 resize-none text-[13px] leading-relaxed"
+          rows={3}
+          wrapperClassName="flex-1"
+          className="resize-none text-[13px] leading-relaxed"
+          compact
         />
         <button onClick={del} className="mt-1 flex-shrink-0 p-1.5 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded transition-all">
           <Trash2 className="h-3.5 w-3.5" />
@@ -44,7 +48,7 @@ function HighlightCard({ resumeId, item, onSaving, onSaved, onRefresh }) {
   );
 }
 
-export default function CareerHighlightsSection({ resumeId, items = [], onSaving, onSaved, onRefresh }) {
+export default function CareerHighlightsSection({ resumeId, items = [], onSaving, onSaved, onRefresh, onItemChange }) {
   const addNew = async () => {
     await api.highlights.create(resumeId, { text: '' });
     onRefresh?.();
@@ -61,6 +65,7 @@ export default function CareerHighlightsSection({ resumeId, items = [], onSaving
             onSaving={onSaving}
             onSaved={onSaved}
             onRefresh={onRefresh}
+            onItemChange={onItemChange}
           />
         ))}
         <button onClick={addNew} className="btn-add mt-1">

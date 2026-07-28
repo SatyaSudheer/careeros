@@ -1,7 +1,13 @@
 const zlib = require('zlib');
 
 function clean(value) {
-  return String(value ?? '').trim();
+  // Strip inline markdown (**bold**, *italic*, ~~strike~~, `code`) — exports are plain text
+  return String(value ?? '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim();
 }
 
 function filled(items) {
@@ -48,15 +54,6 @@ function buildResumeText(resume) {
     }
   }
 
-  if (resume.education?.length) {
-    lines.push('', 'EDUCATION');
-    resume.education.forEach(e => {
-      lines.push(lineJoin([e.school, e.location], ' - '));
-      lines.push(lineJoin([[e.degree, e.field].filter(Boolean).join(', '), e.gpa && `GPA ${e.gpa}`, textDate(e.start_date, e.end_date)], ' | '));
-      if (e.details) lines.push(clean(e.details));
-    });
-  }
-
   if (resume.skills?.length) {
     lines.push('', 'SKILLS');
     resume.skills.forEach(s => {
@@ -68,10 +65,19 @@ function buildResumeText(resume) {
   if (resume.experiences?.length) {
     lines.push('', 'WORK EXPERIENCE');
     resume.experiences.forEach(e => {
-      lines.push(lineJoin([e.company, e.title, e.location], ' - '));
+      lines.push(lineJoin([e.title, e.company, e.location], ' - '));
       const dates = textDate(e.start_date, e.end_date, e.current_job);
       if (dates) lines.push(dates);
       filled(e.bullets).forEach(b => lines.push(`- ${b}`));
+    });
+  }
+
+  if (resume.education?.length) {
+    lines.push('', 'EDUCATION');
+    resume.education.forEach(e => {
+      lines.push(lineJoin([e.school, e.location], ' - '));
+      lines.push(lineJoin([[e.degree, e.field].filter(Boolean).join(', '), e.gpa && `GPA ${e.gpa}`, textDate(e.start_date, e.end_date)], ' | '));
+      if (e.details) lines.push(clean(e.details));
     });
   }
 
@@ -84,6 +90,14 @@ function buildResumeText(resume) {
       if (p.description) lines.push(clean(p.description));
       const tech = filled(p.technologies).join(', ');
       if (tech) lines.push(`Stack: ${tech}`);
+    });
+  }
+
+  if (resume.certifications?.length) {
+    lines.push('', 'CERTIFICATIONS');
+    resume.certifications.forEach(c => {
+      const year = (clean(c.issued_date || c.expiry_date).match(/\b(20\d{2}|19\d{2})\b/) || [])[0];
+      lines.push(lineJoin([c.name, c.issuer, year], ' - '));
     });
   }
 

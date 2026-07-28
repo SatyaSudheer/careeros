@@ -3,6 +3,7 @@ import { Briefcase, Plus, Trash2, ChevronDown, X } from 'lucide-react';
 import { api } from '../../api.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import SectionShell from './SectionShell.jsx';
+import MarkdownTextarea from './MarkdownTextarea.jsx';
 
 // ── Smart bullet editor ──────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ function BulletEditor({ bullets, onChange }) {
   };
 
   const handleKeyDown = (e, i) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const next = [...items.slice(0, i + 1), '', ...items.slice(i + 1)];
       onChange(next);
@@ -45,13 +46,17 @@ function BulletEditor({ bullets, onChange }) {
       {items.map((b, i) => (
         <div key={i} className="group/bullet flex items-start gap-2">
           <span className="mt-[9px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-300 group-focus-within/bullet:bg-indigo-400 transition-colors" />
-          <input
+          <MarkdownTextarea
             ref={el => { refs.current[i] = el; }}
             value={b}
-            onChange={e => update(i, e.target.value)}
+            onChange={value => update(i, value)}
             onKeyDown={e => handleKeyDown(e, i)}
             placeholder={i === 0 ? 'Led a team of 5 engineers to ship…' : 'Another achievement or responsibility…'}
-            className="input flex-1 text-[13px] !py-1.5"
+            rows={2}
+            wrapperClassName="flex-1"
+            className="resize-none text-[13px] !py-1.5"
+            compact
+            helper="Enter adds another bullet."
           />
           {items.length > 1 && (
             <button
@@ -76,7 +81,7 @@ function BulletEditor({ bullets, onChange }) {
 
 // ── Single experience card ───────────────────────────────────────────────────
 
-function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh }) {
+function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh, onItemChange }) {
   const [form, setForm] = useState(exp);
   const [open, setOpen] = useState(!exp.company);
 
@@ -91,6 +96,7 @@ function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh }) {
   const set = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
+    onItemChange?.(next);
     schedule(next);
   };
 
@@ -134,7 +140,7 @@ function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh }) {
       {/* Card body */}
       {open && (
         <div className="border-t border-slate-100 px-3 pb-4 pt-3 space-y-3 animate-slide-down">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
             <div className="col-span-2">
               <label className="field-label">Company</label>
               <input value={form.company} onChange={e => set('company', e.target.value)}
@@ -179,12 +185,13 @@ function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh }) {
 
           <div>
             <label className="field-label">Context Note <span className="text-slate-300 font-normal">(optional — shown before bullets)</span></label>
-            <textarea
+            <MarkdownTextarea
               value={form.note || ''}
-              onChange={e => set('note', e.target.value)}
+              onChange={value => set('note', value)}
               placeholder="e.g. Brought in to own X; moved on after Y."
-              rows={2}
-              className="input resize-none text-[13px] leading-relaxed"
+              rows={3}
+              className="resize-none text-[13px] leading-relaxed"
+              compact
             />
           </div>
 
@@ -203,7 +210,7 @@ function ExpCard({ resumeId, exp, onSaving, onSaved, onRefresh }) {
 
 // ── Section ──────────────────────────────────────────────────────────────────
 
-export default function ExperienceSection({ resumeId, items, onSaving, onSaved, onRefresh }) {
+export default function ExperienceSection({ resumeId, items, onSaving, onSaved, onRefresh, onItemChange }) {
   const [adding, setAdding] = useState(false);
 
   const addNew = async () => {
@@ -227,6 +234,7 @@ export default function ExperienceSection({ resumeId, items, onSaving, onSaved, 
             onSaving={onSaving}
             onSaved={onSaved}
             onRefresh={onRefresh}
+            onItemChange={onItemChange}
           />
         ))}
         <button onClick={addNew} disabled={adding} className="btn-add mt-1">

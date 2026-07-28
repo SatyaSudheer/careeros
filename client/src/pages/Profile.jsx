@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
+import MarkdownTextarea from '../components/editor/MarkdownTextarea.jsx';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,42 @@ function initials(name) {
 function dateRange(start, end, current) {
   const parts = [start, current ? 'Present' : end].filter(Boolean);
   return parts.join(' – ');
+}
+
+function InlineMarkdown({ text }) {
+  if (!text) return null;
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~|`([^`]+)`/g;
+  const parts = [];
+  let last = 0, key = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[1] != null) parts.push(<strong key={key++}>{m[1]}</strong>);
+    else if (m[2] != null) parts.push(<em key={key++}>{m[2]}</em>);
+    else if (m[3] != null) parts.push(<del key={key++}>{m[3]}</del>);
+    else if (m[4] != null) parts.push(<code key={key++} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.92em]">{m[4]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
+function getProfileProgress(profile) {
+  const p = profile?.personal || {};
+  const skills = profile?.skills || [];
+  const checks = [
+    !!p.full_name,
+    !!p.email,
+    !!p.phone,
+    !!p.location,
+    !!p.tagline,
+    !!(p.summary && p.summary.trim().length >= 40),
+    (profile?.experiences || []).length > 0,
+    (profile?.education || []).length > 0,
+    skills.some(s => (s.items || []).length > 0),
+    (profile?.projects || []).length > 0,
+  ];
+  const done = checks.filter(Boolean).length;
+  return { done, total: checks.length, pct: Math.round((done / checks.length) * 100) };
 }
 
 // ── Small shared components ───────────────────────────────────────────────────
@@ -50,8 +87,8 @@ function SectionHeader({ icon: Icon, title, count, onAdd, adding }) {
         )}
       </div>
       <button onClick={onAdd} disabled={adding} className="btn-secondary !py-1.5 !px-2.5 !text-xs !text-slate-600">
-        <Plus className="h-3.5 w-3.5" />
-        Add
+        {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        {adding ? 'Adding' : 'Add'}
       </button>
     </div>
   );
@@ -77,6 +114,127 @@ function ProfileMetric({ icon: Icon, label, value }) {
   );
 }
 
+function ProfileWorkspaceHeader({ profile, progress, totalSkills, onCreateResume, creating }) {
+  const p = profile.personal || {};
+  const counts = [
+    { label: 'Roles', value: profile.experiences?.length || 0 },
+    { label: 'Skills', value: totalSkills },
+    { label: 'Projects', value: profile.projects?.length || 0 },
+  ];
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2">
+            <UserCircle className="h-4 w-4 text-indigo-500" />
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Profile workspace</p>
+          </div>
+          <h1 className="truncate text-xl font-semibold text-slate-900">{p.full_name || 'Master Profile'}</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            Maintain the reusable source profile here, then generate tailored resumes from a stronger baseline.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-[150px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="text-[11px] font-semibold text-slate-500">Core profile</span>
+              <span className="text-[11px] font-bold text-indigo-600">{progress.pct}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${progress.pct}%` }} />
+            </div>
+          </div>
+          {counts.map(item => (
+            <div key={item.label} className="min-w-[76px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-center">
+              <p className="text-base font-semibold leading-none text-slate-800">{item.value}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-400">{item.label}</p>
+            </div>
+          ))}
+          <button
+            onClick={onCreateResume}
+            disabled={creating}
+            className="btn-primary !h-[54px] justify-center !px-4 !text-xs"
+          >
+            {creating ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Creating</> : <><Plus className="h-3.5 w-3.5" />New Resume</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfilePreviewCard({ profile, totalSkills }) {
+  const p = profile.personal || {};
+  const exps = profile.experiences || [];
+  const skills = profile.skills || [];
+
+  return (
+    <aside className="hidden xl:block">
+      <div className="sticky top-20 max-h-[calc(100vh-96px)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Profile snapshot</p>
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-900 text-[16px] font-semibold text-white">
+            {initials(p.full_name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-semibold text-slate-900">{p.full_name || 'Profile'}</p>
+            <p className="truncate text-[12px] text-slate-400">{p.tagline || p.email || 'Master record'}</p>
+          </div>
+        </div>
+
+        {p.summary && (
+          <p className="mt-4 border-t border-slate-100 pt-4 text-[12.5px] leading-relaxed text-slate-600">
+            <InlineMarkdown text={p.summary} />
+          </p>
+        )}
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-slate-50 px-2 py-2 text-center">
+            <p className="text-sm font-semibold text-slate-800">{exps.length}</p>
+            <p className="text-[10.5px] text-slate-400">Roles</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-2 text-center">
+            <p className="text-sm font-semibold text-slate-800">{totalSkills}</p>
+            <p className="text-[10.5px] text-slate-400">Skills</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-2 text-center">
+            <p className="text-sm font-semibold text-slate-800">{profile.certifications?.length || 0}</p>
+            <p className="text-[10.5px] text-slate-400">Certs</p>
+          </div>
+        </div>
+
+        {exps.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Recent experience</p>
+            <div className="space-y-3">
+              {exps.slice(0, 3).map(exp => (
+                <div key={exp.id} className="border-l-2 border-indigo-200 pl-3">
+                  <p className="truncate text-[12.5px] font-semibold text-slate-800">{exp.company}</p>
+                  <p className="truncate text-[11.5px] text-slate-500">{exp.title}</p>
+                  <p className="mt-0.5 text-[10.5px] text-slate-400">{dateRange(exp.start_date, exp.end_date, exp.current_job)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {skills.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Top skills</p>
+            <div className="flex flex-wrap gap-1.5">
+              {skills.flatMap(s => s.items || []).slice(0, 16).map((item, i) => (
+                <span key={`${item}-${i}`} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">{item}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 // ── Bullet editor (used in experience forms) ──────────────────────────────────
 
 function BulletEditor({ bullets, onChange }) {
@@ -85,7 +243,7 @@ function BulletEditor({ bullets, onChange }) {
 
   const update = (i, val) => { const n = [...items]; n[i] = val; onChange(n); };
   const handleKey = (e, i) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const n = [...items.slice(0, i + 1), '', ...items.slice(i + 1)];
       onChange(n);
@@ -102,13 +260,17 @@ function BulletEditor({ bullets, onChange }) {
       {items.map((b, i) => (
         <div key={i} className="group/b flex items-start gap-2">
           <span className="mt-[9px] h-1.5 w-1.5 rounded-full bg-slate-300 flex-shrink-0" />
-          <input
+          <MarkdownTextarea
             ref={el => { refs.current[i] = el; }}
             value={b}
-            onChange={e => update(i, e.target.value)}
+            onChange={value => update(i, value)}
             onKeyDown={e => handleKey(e, i)}
             placeholder={i === 0 ? 'Led a team of 5 to ship…' : 'Another achievement…'}
-            className="input flex-1 !py-1.5 text-[12.5px]"
+            rows={2}
+            wrapperClassName="flex-1"
+            className="resize-none !py-1.5 text-[12.5px]"
+            compact
+            helper="Enter adds another bullet."
           />
           {items.length > 1 && (
             <button tabIndex={-1} onClick={() => onChange(items.filter((_, j) => j !== i))}
@@ -128,7 +290,7 @@ function BulletEditor({ bullets, onChange }) {
 
 // ── Personal / Profile hero card ──────────────────────────────────────────────
 
-function PersonalCard({ data, onSaving, onSaved }) {
+function PersonalCard({ data, onSaving, onSaved, onChange }) {
   const EMPTY = { full_name: '', tagline: '', email: '', phone: '', location: '', website: '', linkedin: '', github: '', summary: '' };
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState(false);
@@ -138,7 +300,12 @@ function PersonalCard({ data, onSaving, onSaved }) {
   const saveFn = useCallback(async (d) => { onSaving?.(); await api.profile.updatePersonal(d); onSaved?.(); }, [onSaving, onSaved]);
   const { schedule } = useAutoSave(saveFn);
 
-  const set = (k, v) => { const n = { ...form, [k]: v }; setForm(n); if (editing) schedule(n); };
+  const set = (k, v) => {
+    const n = { ...form, [k]: v };
+    setForm(n);
+    onChange?.(n);
+    if (editing) schedule(n);
+  };
 
   const chips = [
     { Icon: Mail,     val: form.email },
@@ -187,7 +354,9 @@ function PersonalCard({ data, onSaving, onSaved }) {
         </div>
 
         {form.summary && !editing && (
-          <p className="mt-5 border-t border-slate-100 pt-5 text-[13.5px] leading-relaxed text-slate-600">{form.summary}</p>
+          <p className="mt-5 border-t border-slate-100 pt-5 text-[13.5px] leading-relaxed text-slate-600">
+            <InlineMarkdown text={form.summary} />
+          </p>
         )}
       </div>
 
@@ -212,7 +381,13 @@ function PersonalCard({ data, onSaving, onSaved }) {
           </div>
           <div>
             <label className="field-label">Professional Summary</label>
-            <textarea value={form.summary} onChange={e => set('summary', e.target.value)} rows={6} className="input" />
+            <MarkdownTextarea
+              value={form.summary}
+              onChange={value => set('summary', value)}
+              rows={8}
+              className="leading-relaxed"
+              placeholder="Summarize your role, years of experience, domains, and strongest career themes."
+            />
           </div>
           <div className="flex justify-end">
             <button onClick={() => setEditing(false)} className="btn-ghost !text-xs !text-slate-500">Done</button>
@@ -259,12 +434,13 @@ function ExpForm({ initial, onSave, onCancel, label = 'Save' }) {
       </div>
       <div>
         <label className="field-label">Context Note <span className="text-slate-300 font-normal">(optional — shown before bullets)</span></label>
-        <textarea
+        <MarkdownTextarea
           value={form.note || ''}
-          onChange={e => set('note', e.target.value)}
+          onChange={value => set('note', value)}
           placeholder="e.g. Brought in to own X; moved on after Y."
-          rows={2}
-          className="input resize-none text-[13px] leading-relaxed"
+          rows={3}
+          className="resize-none text-[13px] leading-relaxed"
+          compact
         />
       </div>
       <div>
@@ -317,7 +493,8 @@ function ExpItem({ exp, onRefresh, onSaving, onSaved }) {
           <ul className="mt-2.5 space-y-1">
             {exp.bullets.filter(Boolean).slice(0, 3).map((b, i) => (
               <li key={i} className="flex items-start gap-2 text-[12px] text-slate-600 leading-relaxed">
-                <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-300 flex-shrink-0" />{b}
+                <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-300 flex-shrink-0" />
+                <span><InlineMarkdown text={b} /></span>
               </li>
             ))}
             {exp.bullets.filter(Boolean).length > 3 && (
@@ -358,7 +535,16 @@ function EduForm({ initial, onSave, onCancel }) {
         <div><label className="field-label">Start</label><input value={form.start_date} onChange={e => set('start_date', e.target.value)} className="input" /></div>
         <div><label className="field-label">End</label><input value={form.end_date} onChange={e => set('end_date', e.target.value)} className="input" /></div>
       </div>
-      <div><label className="field-label">Additional Details</label><textarea value={form.details} onChange={e => set('details', e.target.value)} rows={2} className="input resize-none" /></div>
+      <div>
+        <label className="field-label">Additional Details</label>
+        <MarkdownTextarea
+          value={form.details}
+          onChange={value => set('details', value)}
+          rows={3}
+          className="resize-none text-[13px] leading-relaxed"
+          compact
+        />
+      </div>
       <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
         <button onClick={onCancel} className="btn-ghost !text-xs">Cancel</button>
         <SaveBtn saving={saving} onClick={handleSave} />
@@ -394,7 +580,7 @@ function EduItem({ edu, onRefresh, onSaving, onSaved }) {
               {[edu.degree, edu.field].filter(Boolean).join(', ')}
               {edu.gpa ? <span className="text-slate-400"> · GPA {edu.gpa}</span> : null}
             </p>
-            {edu.details && <p className="text-[12px] text-slate-400 mt-0.5 italic">{edu.details}</p>}
+            {edu.details && <p className="text-[12px] text-slate-400 mt-0.5 italic"><InlineMarkdown text={edu.details} /></p>}
           </div>
           <span className="text-[11.5px] text-slate-400 whitespace-nowrap flex-shrink-0 pt-0.5">{dateRange(edu.start_date, edu.end_date)}</span>
         </div>
@@ -422,7 +608,7 @@ function SkillForm({ initial, onSave, onCancel }) {
     <div className="bg-white rounded-xl border border-indigo-200 p-4 space-y-3" style={{ boxShadow: '0 2px 10px rgba(99,102,241,0.09)' }}>
       <div className="grid gap-3 sm:grid-cols-3">
         <div><label className="field-label">Category</label><input value={category} onChange={e => setCategory(e.target.value)} className="input" placeholder="Languages" autoFocus /></div>
-        <div className="col-span-2"><label className="field-label">Skills (comma-separated)</label><input value={raw} onChange={e => setRaw(e.target.value)} className="input" placeholder="Python, JavaScript, Go" /></div>
+        <div className="sm:col-span-2"><label className="field-label">Skills (comma-separated)</label><input value={raw} onChange={e => setRaw(e.target.value)} className="input" placeholder="Python, JavaScript, Go" /></div>
       </div>
       <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
         <button onClick={onCancel} className="btn-ghost !text-xs">Cancel</button>
@@ -481,9 +667,18 @@ function ProjectForm({ initial, onSave, onCancel }) {
         <div><label className="field-label">Project Name</label><input value={form.name} onChange={e => set('name', e.target.value)} className="input" autoFocus /></div>
         <div><label className="field-label">URL</label><input value={form.url} onChange={e => set('url', e.target.value)} className="input" placeholder="github.com/…" /></div>
       </div>
-      <div><label className="field-label">Description</label><textarea value={form.description} onChange={e => set('description', e.target.value)} rows={2} className="input resize-none" /></div>
+      <div>
+        <label className="field-label">Description</label>
+        <MarkdownTextarea
+          value={form.description}
+          onChange={value => set('description', value)}
+          rows={4}
+          className="resize-none text-[13px] leading-relaxed"
+          compact
+        />
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="col-span-1"><label className="field-label">Tech Stack</label><input value={rawTech} onChange={e => setRawTech(e.target.value)} className="input" placeholder="React, Node, Postgres" /></div>
+        <div><label className="field-label">Tech Stack</label><input value={rawTech} onChange={e => setRawTech(e.target.value)} className="input" placeholder="React, Node, Postgres" /></div>
         <div><label className="field-label">Start</label><input value={form.start_date} onChange={e => set('start_date', e.target.value)} className="input" /></div>
         <div><label className="field-label">End</label><input value={form.end_date} onChange={e => set('end_date', e.target.value)} className="input" /></div>
       </div>
@@ -524,7 +719,7 @@ function ProjectItem({ proj, onRefresh, onSaving, onSaved }) {
                 </a>
               )}
             </div>
-            {proj.description && <p className="text-[12.5px] text-slate-500 mt-0.5 leading-relaxed">{proj.description}</p>}
+            {proj.description && <p className="text-[12.5px] text-slate-500 mt-0.5 leading-relaxed"><InlineMarkdown text={proj.description} /></p>}
             {proj.technologies?.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {proj.technologies.map(t => (
@@ -556,12 +751,12 @@ function CertForm({ initial, onSave, onCancel }) {
   return (
     <div className="bg-white rounded-xl border border-indigo-200 p-5 space-y-3.5" style={{ boxShadow: '0 2px 10px rgba(99,102,241,0.09)' }}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="col-span-2"><label className="field-label">Certification / Training Name</label><input value={form.name} onChange={e => set('name', e.target.value)} className="input" autoFocus placeholder="AWS Certified Solutions Architect" /></div>
-        <div className="col-span-2"><label className="field-label">Issuing Organization</label><input value={form.issuer} onChange={e => set('issuer', e.target.value)} className="input" placeholder="Amazon Web Services" /></div>
+        <div className="sm:col-span-2"><label className="field-label">Certification / Training Name</label><input value={form.name} onChange={e => set('name', e.target.value)} className="input" autoFocus placeholder="AWS Certified Solutions Architect" /></div>
+        <div className="sm:col-span-2"><label className="field-label">Issuing Organization</label><input value={form.issuer} onChange={e => set('issuer', e.target.value)} className="input" placeholder="Amazon Web Services" /></div>
         <div><label className="field-label">Date Issued</label><input value={form.issued_date} onChange={e => set('issued_date', e.target.value)} className="input" placeholder="Jan 2023" /></div>
         <div><label className="field-label">Expiry Date</label><input value={form.expiry_date} onChange={e => set('expiry_date', e.target.value)} className="input" placeholder="Jan 2026 (or No Expiry)" /></div>
-        <div className="col-span-2"><label className="field-label">Group (optional)</label><input value={form.cert_group || ''} onChange={e => set('cert_group', e.target.value)} className="input" placeholder="Cloud, Infrastructure & Platform, Agile…" /></div>
-        <div className="col-span-2"><label className="field-label">Credential ID (optional)</label><input value={form.credential_id} onChange={e => set('credential_id', e.target.value)} className="input" placeholder="ABC-123-XYZ" /></div>
+        <div className="sm:col-span-2"><label className="field-label">Group (optional)</label><input value={form.cert_group || ''} onChange={e => set('cert_group', e.target.value)} className="input" placeholder="Cloud, Infrastructure & Platform, Agile…" /></div>
+        <div className="sm:col-span-2"><label className="field-label">Credential ID (optional)</label><input value={form.credential_id} onChange={e => set('credential_id', e.target.value)} className="input" placeholder="ABC-123-XYZ" /></div>
       </div>
       <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
         <button onClick={onCancel} className="btn-ghost !text-xs">Cancel</button>
@@ -638,6 +833,10 @@ export default function Profile() {
     setProfile(updated);
   }, []);
 
+  const patchPersonal = useCallback((personal) => {
+    setProfile(prev => prev ? ({ ...prev, personal }) : prev);
+  }, []);
+
   const handleCreateResume = useCallback(async () => {
     setCreating(true);
     try {
@@ -662,6 +861,7 @@ export default function Profile() {
   const certs    = profile.certifications || [];
   const p = profile.personal || {};
   const totalSkills = skills.reduce((n, s) => n + (s.items?.length || 0), 0);
+  const progress = getProfileProgress(profile);
   const populatedSections = [
     p.full_name || p.email || p.phone,
     exps.length,
@@ -676,7 +876,7 @@ export default function Profile() {
     <div className="min-h-screen bg-slate-50">
       {/* ── Sticky header ──────────────────────────────────────── */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-[1480px] items-center justify-between px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900">
               <UserCircle className="h-4 w-4 text-white" />
@@ -704,7 +904,7 @@ export default function Profile() {
       </header>
 
       {/* ── Content ────────────────────────────────────────────── */}
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <main className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,820px)_minmax(320px,1fr)]">
         <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
@@ -728,13 +928,20 @@ export default function Profile() {
         </aside>
 
         <div className="min-w-0 space-y-5">
+        <ProfileWorkspaceHeader
+          profile={profile}
+          progress={progress}
+          totalSkills={totalSkills}
+          onCreateResume={handleCreateResume}
+          creating={creating}
+        />
 
         {/* Personal hero */}
-        <PersonalCard data={profile.personal} onSaving={onSaving} onSaved={onSaved} />
+        <PersonalCard data={profile.personal} onSaving={onSaving} onSaved={onSaved} onChange={patchPersonal} />
 
         {/* Experience */}
         <SectionPanel>
-          <SectionHeader icon={Briefcase} title="Experience" count={exps.length} adding={false} onAdd={() => setAddingExp(true)} />
+          <SectionHeader icon={Briefcase} title="Experience" count={exps.length} adding={addingExp} onAdd={() => setAddingExp(true)} />
           <div className="space-y-3 p-4 sm:p-5">
             {addingExp && (
               <ExpForm
@@ -754,7 +961,7 @@ export default function Profile() {
 
         {/* Education */}
         <SectionPanel>
-          <SectionHeader icon={GraduationCap} title="Education" count={edus.length} adding={false} onAdd={() => setAddingEdu(true)} />
+          <SectionHeader icon={GraduationCap} title="Education" count={edus.length} adding={addingEdu} onAdd={() => setAddingEdu(true)} />
           <div className="space-y-3 p-4 sm:p-5">
             {addingEdu && (
               <EduForm
@@ -774,7 +981,7 @@ export default function Profile() {
 
         {/* Skills */}
         <SectionPanel>
-          <SectionHeader icon={Layers} title="Skills" count={skills.length} adding={false} onAdd={() => setAddingSkill(true)} />
+          <SectionHeader icon={Layers} title="Skills" count={skills.length} adding={addingSkill} onAdd={() => setAddingSkill(true)} />
           <div className="space-y-2.5 p-4 sm:p-5">
             {addingSkill && (
               <SkillForm
@@ -794,7 +1001,7 @@ export default function Profile() {
 
         {/* Projects */}
         <SectionPanel>
-          <SectionHeader icon={FolderOpen} title="Projects" count={projects.length} adding={false} onAdd={() => setAddingProj(true)} />
+          <SectionHeader icon={FolderOpen} title="Projects" count={projects.length} adding={addingProj} onAdd={() => setAddingProj(true)} />
           <div className="space-y-3 p-4 sm:p-5">
             {addingProj && (
               <ProjectForm
@@ -814,7 +1021,7 @@ export default function Profile() {
 
         {/* Certifications */}
         <SectionPanel>
-          <SectionHeader icon={Award} title="Certifications & Notable Trainings" count={certs.length} adding={false} onAdd={() => setAddingCert(true)} />
+          <SectionHeader icon={Award} title="Certifications & Notable Trainings" count={certs.length} adding={addingCert} onAdd={() => setAddingCert(true)} />
           <div className="space-y-3 p-4 sm:p-5">
             {addingCert && (
               <CertForm
@@ -834,6 +1041,7 @@ export default function Profile() {
 
         <div className="h-12" />
         </div>
+        <ProfilePreviewCard profile={profile} totalSkills={totalSkills} />
       </main>
     </div>
   );

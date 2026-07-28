@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X, ChevronDown, AlignJustify } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, CloudOff, FileDown, FileText, UserCircle, Palette, Type, Minus, Plus, X, ChevronDown, AlignJustify, Columns2, PencilLine, Eye, ListChecks } from 'lucide-react';
 import { THEMES } from '../components/preview/themes.jsx';
 import { api } from '../api.js';
 import PersonalSection from '../components/editor/PersonalSection.jsx';
@@ -146,6 +146,73 @@ function PdfExportModal({ resume, onConfirm, onCancel, exporting }) {
   );
 }
 
+const VIEW_MODES = [
+  { key: 'split',   icon: Columns2,   label: 'Split' },
+  { key: 'editor',  icon: PencilLine, label: 'Form' },
+  { key: 'preview', icon: Eye,        label: 'Preview' },
+];
+
+function getResumeProgress(resume) {
+  const p = resume?.personal || {};
+  const checks = [
+    !!p.full_name,
+    !!p.email,
+    !!p.phone,
+    !!p.location,
+    !!p.tagline,
+    !!(p.summary && p.summary.trim().length >= 40),
+    (resume?.experiences || []).some(e => e.company || e.title),
+    (resume?.experiences || []).some(e => (e.bullets || []).filter(Boolean).length > 0),
+    (resume?.skills || []).some(s => (s.items || []).length > 0),
+    (resume?.education || []).length > 0,
+  ];
+  const done = checks.filter(Boolean).length;
+  return { done, total: checks.length, pct: Math.round((done / checks.length) * 100) };
+}
+
+function FormWorkspaceHeader({ resume, progress }) {
+  const counts = [
+    { label: 'Roles', value: resume.experiences?.length || 0 },
+    { label: 'Skills', value: (resume.skills || []).reduce((n, s) => n + (s.items?.length || 0), 0) },
+    { label: 'Projects', value: resume.projects?.length || 0 },
+  ];
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-indigo-500" />
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Resume workspace</p>
+          </div>
+          <h1 className="truncate text-xl font-semibold text-slate-900">{resume.title || 'Untitled Resume'}</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            Add details on the left. The rendered resume preview stays visible on larger screens and updates as you type.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-[150px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="text-[11px] font-semibold text-slate-500">Core details</span>
+              <span className="text-[11px] font-bold text-indigo-600">{progress.pct}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${progress.pct}%` }} />
+            </div>
+          </div>
+          {counts.map(item => (
+            <div key={item.label} className="min-w-[76px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-center">
+              <p className="text-base font-semibold leading-none text-slate-800">{item.value}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-400">{item.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -153,6 +220,14 @@ export default function Editor() {
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState('idle');
   const [editingTitle, setEditingTitle] = useState(false);
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = localStorage.getItem('careeros-editor-view');
+    return VIEW_MODES.some(v => v.key === saved) ? saved : 'split';
+  });
+  const setView = useCallback((mode) => {
+    setViewMode(mode);
+    localStorage.setItem('careeros-editor-view', mode);
+  }, []);
   const [exporting, setExporting] = useState(false);
   const [exportingKind, setExportingKind] = useState(null);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -191,6 +266,24 @@ export default function Editor() {
     setResume(updated);
   }, [id]);
 
+  const patchPersonal = useCallback((personal) => {
+    setResume(prev => prev ? ({ ...prev, personal }) : prev);
+  }, []);
+
+  const patchCollectionItem = useCallback((key, item) => {
+    setResume(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [key]: (prev[key] || []).map(existing => existing.id === item.id ? { ...existing, ...item } : existing),
+      };
+    });
+  }, []);
+
+  const patchCollection = useCallback((key, items) => {
+    setResume(prev => prev ? ({ ...prev, [key]: items }) : prev);
+  }, []);
+
   const handleThemeSelect = useCallback(async (template) => {
     setThemeOpen(false);
     await api.resumes.update(id, { template });
@@ -214,6 +307,8 @@ export default function Editor() {
     const next = Math.min(1.18, Math.max(0.88, Math.round((current + delta) * 100) / 100));
     updateStyle({ font_scale: next });
   }, [resume?.font_scale, updateStyle]);
+
+  const progress = useMemo(() => getResumeProgress(resume), [resume]);
 
   const exportFile = useCallback(async (kind, sections) => {
     setExporting(true);
@@ -302,6 +397,25 @@ export default function Editor() {
 
         <div className="ml-auto flex items-center gap-2">
           <SaveStatus state={saveState} />
+
+          {/* View mode: split / full-page form / preview */}
+          <div className="flex items-center rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Editor layout">
+            {VIEW_MODES.map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                title={label}
+                aria-pressed={viewMode === key}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+                  viewMode === key ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="h-4 w-px bg-slate-200" />
 
           {/* Resume style controls */}
           <div className="relative">
@@ -496,24 +610,60 @@ export default function Editor() {
       {/* ── Body ─────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left panel: Editor */}
-        <div className="w-[440px] flex-shrink-0 overflow-y-auto editor-scroll bg-slate-50 border-r border-slate-200 p-3 space-y-2.5">
-          <AtsScore resume={resume} />
-          <PersonalSection resumeId={id} data={resume.personal} onSaving={onSaving} onSaved={onSaved} />
-          <CareerHighlightsSection resumeId={id} items={resume.highlights || []} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-          <EducationSection resumeId={id} items={resume.education} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-          <SkillsSection resumeId={id} items={resume.skills} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-          <ExperienceSection resumeId={id} items={resume.experiences} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-          <ProjectsSection resumeId={id} items={resume.projects} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-          <CertificationsSection resumeId={id} items={resume.certifications || []} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} />
-        </div>
+        {/* Editor panel — stays mounted in every mode (only hidden/resized via CSS)
+            so in-progress edits and pending autosaves survive view switches. */}
+        <div className={
+          viewMode === 'preview'
+            ? 'hidden'
+            : viewMode === 'editor'
+              ? 'flex-1 overflow-y-auto editor-scroll bg-slate-50'
+              : 'w-[440px] flex-shrink-0 overflow-y-auto editor-scroll bg-slate-50 border-r border-slate-200'
+        }>
+          <div className={viewMode === 'editor' ? 'mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,820px)_minmax(360px,1fr)]' : 'p-3 space-y-2.5'}>
+            <div className={viewMode === 'editor' ? 'space-y-4' : 'space-y-2.5'}>
+              {viewMode === 'editor' && <FormWorkspaceHeader resume={resume} progress={progress} />}
+              <AtsScore resume={resume} onRefresh={refresh} />
+              <PersonalSection resumeId={id} data={resume.personal} onSaving={onSaving} onSaved={onSaved} onChange={patchPersonal} />
+              <CareerHighlightsSection resumeId={id} items={resume.highlights || []} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemChange={(item) => patchCollectionItem('highlights', item)} />
+              <EducationSection resumeId={id} items={resume.education} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemChange={(item) => patchCollectionItem('education', item)} />
+              <SkillsSection resumeId={id} items={resume.skills} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemsChange={(items) => patchCollection('skills', items)} onItemChange={(item) => patchCollectionItem('skills', item)} />
+              <ExperienceSection resumeId={id} items={resume.experiences} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemChange={(item) => patchCollectionItem('experiences', item)} />
+              <ProjectsSection resumeId={id} items={resume.projects} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemsChange={(items) => patchCollection('projects', items)} onItemChange={(item) => patchCollectionItem('projects', item)} />
+              <CertificationsSection resumeId={id} items={resume.certifications || []} onSaving={onSaving} onSaved={onSaved} onRefresh={refresh} onItemChange={(item) => patchCollectionItem('certifications', item)} />
+            </div>
 
-        {/* Right panel: Preview */}
-        <div className="flex-1 overflow-y-auto preview-scroll bg-[#E8ECF0]">
-          <div className="mx-auto py-8 px-6" style={{ maxWidth: 828 }}>
-            <ResumePreview resume={resume} />
+            {viewMode === 'editor' && (
+              <aside className="hidden xl:block">
+                <div className="sticky top-6 max-h-[calc(100vh-96px)] overflow-y-auto rounded-xl border border-slate-200 bg-slate-200/60 p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">Rendered preview</p>
+                      <p className="text-xs text-slate-500">Letter page view</p>
+                    </div>
+                    <button onClick={() => setView('preview')} className="btn-secondary !px-2.5 !py-1.5 !text-xs">
+                      <Eye className="h-3.5 w-3.5" />
+                      Open
+                    </button>
+                  </div>
+                  <div className="resume-preview-mini-frame">
+                    <div className="resume-preview-mini">
+                      <ResumePreview resume={resume} />
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            )}
           </div>
         </div>
+
+        {/* Preview panel — unmounted in form mode; remount re-measures pagination */}
+        {viewMode !== 'editor' && (
+          <div className="flex-1 overflow-y-auto preview-scroll bg-[#E8ECF0]">
+            <div className="mx-auto py-8 px-6" style={{ maxWidth: 828 }}>
+              <ResumePreview resume={resume} />
+            </div>
+          </div>
+        )}
       </div>
 
       {pdfModalOpen && (

@@ -6,7 +6,7 @@ import SectionShell from './SectionShell.jsx';
 
 const EMPTY = { name: '', issuer: '', issued_date: '', expiry_date: '', credential_id: '', cert_group: '' };
 
-function CertCard({ resumeId, cert, onSaving, onSaved, onRefresh }) {
+function CertCard({ resumeId, cert, onSaving, onSaved, onRefresh, onItemChange }) {
   const [form, setForm] = useState(cert);
   const [open, setOpen] = useState(!cert.name);
 
@@ -21,6 +21,7 @@ function CertCard({ resumeId, cert, onSaving, onSaved, onRefresh }) {
   const set = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
+    onItemChange?.(next);
     schedule(next);
   };
 
@@ -59,7 +60,7 @@ function CertCard({ resumeId, cert, onSaving, onSaved, onRefresh }) {
 
       {open && (
         <div className="border-t border-slate-100 px-3 pb-4 pt-3 space-y-2.5 animate-slide-down">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
             <div className="col-span-2">
               <label className="field-label">Certification / Training Name</label>
               <input value={form.name} onChange={e => set('name', e.target.value)}
@@ -97,7 +98,7 @@ function CertCard({ resumeId, cert, onSaving, onSaved, onRefresh }) {
   );
 }
 
-export default function CertificationsSection({ resumeId, items, onSaving, onSaved, onRefresh }) {
+export default function CertificationsSection({ resumeId, items, onSaving, onSaved, onRefresh, onItemChange }) {
   const addNew = async () => {
     await api.certifications.create(resumeId, {});
     onRefresh?.();
@@ -108,7 +109,7 @@ export default function CertificationsSection({ resumeId, items, onSaving, onSav
       <div className="space-y-2">
         {items.map(cert => (
           <CertCard key={cert.id} resumeId={resumeId} cert={cert}
-            onSaving={onSaving} onSaved={onSaved} onRefresh={onRefresh} />
+            onSaving={onSaving} onSaved={onSaved} onRefresh={onRefresh} onItemChange={onItemChange} />
         ))}
         <button onClick={addNew} className="btn-add mt-1">
           <Plus className="h-3.5 w-3.5" />

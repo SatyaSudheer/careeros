@@ -3,6 +3,7 @@ import { User } from 'lucide-react';
 import { api } from '../../api.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import SectionShell from './SectionShell.jsx';
+import MarkdownTextarea from './MarkdownTextarea.jsx';
 
 const EMPTY = { full_name: '', tagline: '', subtitle: '', email: '', phone: '', location: '', website: '', linkedin: '', github: '', summary: '' };
 
@@ -15,7 +16,7 @@ function Field({ label, children }) {
   );
 }
 
-export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
+export default function PersonalSection({ resumeId, data, onSaving, onSaved, onChange }) {
   const [form, setForm] = useState(EMPTY);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
   const set = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
+    onChange?.(next);
     schedule(next);
   };
 
@@ -71,7 +73,7 @@ export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
           </p>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Email">
             <input
               type="email"
@@ -92,7 +94,7 @@ export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Location">
             <input
               value={form.location}
@@ -111,7 +113,7 @@ export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="LinkedIn">
             <input
               value={form.linkedin}
@@ -131,12 +133,12 @@ export default function PersonalSection({ resumeId, data, onSaving, onSaved }) {
         </div>
 
         <Field label="Professional Summary">
-          <textarea
+          <MarkdownTextarea
             value={form.summary}
-            onChange={e => set('summary', e.target.value)}
+            onChange={value => set('summary', value)}
             placeholder="Results-driven engineer with X years of experience in… Tailor this to the job description for best ATS results."
-            rows={6}
-            className="input leading-relaxed"
+            rows={8}
+            className="leading-relaxed"
           />
           <p className="mt-1 text-[11px] text-slate-300">
             Tip: 2–4 sentences. Include your title, years of experience, and 1–2 key strengths.

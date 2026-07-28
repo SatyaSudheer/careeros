@@ -3,6 +3,8 @@ const cors = require('cors');
 const db = require('./db');
 const { buildResumeHtml, generatePdf } = require('./pdf');
 const { buildResumeText, buildResumeDocx } = require('./exporters');
+const { aiConfigured, rewriteBullet } = require('./ai');
+const llm = require('./llm');
 
 const app = express();
 app.use(cors());
@@ -483,6 +485,46 @@ app.delete('/api/jobs/:id/resumes/:resumeId', (req, res) => {
   res.json({ success: true });
 });
 
+// ── JD match scores ───────────────────────────────────────────────────────────
+// shared/jdMatch.js is ESM (also imported by the client); CJS must dynamic-import it.
+let jdMatchModule;
+function loadJdMatch() {
+  jdMatchModule ||= import('../shared/jdMatch.js');
+  return jdMatchModule;
+}
+
+app.get('/api/jobs/:id/match', async (req, res) => {
+  try {
+    const job = db.prepare('SELECT * FROM job_applications WHERE id = ?').get(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Not found' });
+    const jd = String(job.description || '').trim();
+    if (!jd) return res.json({ keywords: [], matches: [] });
+
+    const { extractKeywords, matchResume } = await loadJdMatch();
+    const keywords = extractKeywords(jd).map(k => k.label);
+    const linked = new Set(
+      db.prepare('SELECT resume_id FROM job_application_resumes WHERE job_id = ?')
+        .all(req.params.id).map(r => r.resume_id)
+    );
+    const matches = db.prepare('SELECT id, title FROM resumes WHERE is_profile = 0').all()
+      .map(r => {
+        const m = matchResume(jd, fullResume(r.id));
+        return {
+          resume_id: r.id,
+          title: r.title,
+          linked: linked.has(r.id),
+          coverage: m ? m.coverage : 0,
+          matched: m ? m.matched.map(k => k.label) : [],
+          missing: m ? m.missing.map(k => k.label) : [],
+        };
+      })
+      .sort((a, b) => b.coverage - a.coverage);
+    res.json({ keywords, matches });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/jobs/:id/rounds', (req, res) => {
   const job = db.prepare('SELECT * FROM job_applications WHERE id = ?').get(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
@@ -850,6 +892,237 @@ app.post('/api/resumes/from-profile', (req, res) => {
   ce.forEach((c, i) => db.prepare('INSERT INTO certifications (resume_id,name,issuer,issued_date,expiry_date,credential_id,cert_group,order_index) VALUES (?,?,?,?,?,?,?,?)').run(newId, c.name, c.issuer, c.issued_date, c.expiry_date, c.credential_id, c.cert_group||'', i));
 
   res.status(201).json(db.prepare('SELECT * FROM resumes WHERE id = ?').get(newId));
+});
+
+// ── Question Bank ─────────────────────────────────────────────────────────────
+
+// Questions come from two sources — seeded content in the shared DB and
+// user-added questions in the personal DB — unioned under a composite
+// question_key ('shared:<number>' | 'custom:<id>'), with practice state and
+// notes joined in from the personal question_progress table.
+const QUESTION_SELECT = `
+  SELECT * FROM (
+    SELECT 'shared:' || q.number AS key, 'shared' AS source, q.id AS source_id,
+           q.number, q.question, q.category, q.archetype, q.probe, q.level, q.companies,
+           COALESCE(p.practiced, 0) AS practiced, p.practiced_at, COALESCE(p.notes, '') AS notes
+    FROM shared.question_bank q
+    LEFT JOIN question_progress p ON p.question_key = 'shared:' || q.number
+    UNION ALL
+    SELECT 'custom:' || c.id AS key, 'custom' AS source, c.id AS source_id,
+           NULL AS number, c.question, c.category, c.archetype, '' AS probe, c.level, c.companies,
+           COALESCE(p.practiced, 0) AS practiced, p.practiced_at, COALESCE(p.notes, '') AS notes
+    FROM custom_questions c
+    LEFT JOIN question_progress p ON p.question_key = 'custom:' || c.id
+  )
+`;
+
+function getQuestion(key) {
+  return db.prepare(`${QUESTION_SELECT} WHERE key = ?`).get(key);
+}
+
+app.get('/api/questions', (req, res) => {
+  const { CATEGORIES } = require('./questionBank');
+  res.json({
+    categories: CATEGORIES,
+    questions: db.prepare(`${QUESTION_SELECT} ORDER BY source DESC, number, source_id`).all(),
+  });
+});
+
+// Add a custom question (stored in the personal DB — user-generated content)
+app.post('/api/questions', (req, res) => {
+  const { question = '', category = 'General', archetype = '', level = '', companies = '' } = req.body || {};
+  if (!String(question).trim()) return res.status(400).json({ error: 'question is required' });
+  const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) as m FROM custom_questions').get().m;
+  const result = db.prepare(
+    'INSERT INTO custom_questions (question, category, archetype, level, companies, order_index) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(String(question).trim(), String(category).trim() || 'General', String(archetype).trim(), String(level).trim(), String(companies).trim(), maxOrder + 1);
+  res.status(201).json(getQuestion(`custom:${result.lastInsertRowid}`));
+});
+
+// Edit a custom question's content (seeded questions are read-only)
+app.put('/api/questions/custom/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM custom_questions WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const {
+    question = existing.question, category = existing.category,
+    archetype = existing.archetype, level = existing.level, companies = existing.companies,
+  } = req.body || {};
+  db.prepare('UPDATE custom_questions SET question = ?, category = ?, archetype = ?, level = ?, companies = ? WHERE id = ?')
+    .run(String(question).trim(), String(category).trim() || 'General', String(archetype).trim(), String(level).trim(), String(companies).trim(), req.params.id);
+  res.json(getQuestion(`custom:${req.params.id}`));
+});
+
+app.delete('/api/questions/custom/:id', (req, res) => {
+  db.prepare('DELETE FROM custom_questions WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM question_progress WHERE question_key = ?').run(`custom:${req.params.id}`);
+  res.json({ success: true });
+});
+
+// Reset practice progress, optionally scoped to a category and/or archetype.
+// Notes are always kept.
+app.post('/api/questions/reset', (req, res) => {
+  const { archetype = null, category = null } = req.body || {};
+  if (archetype || category) {
+    const keys = db.prepare(`${QUESTION_SELECT} WHERE (? IS NULL OR archetype = ?) AND (? IS NULL OR category = ?)`)
+      .all(archetype, archetype, category, category).map(q => q.key);
+    const clear = db.prepare('UPDATE question_progress SET practiced = 0, practiced_at = NULL WHERE question_key = ?');
+    for (const key of keys) clear.run(key);
+  } else {
+    db.prepare('UPDATE question_progress SET practiced = 0, practiced_at = NULL').run();
+  }
+  db.prepare("DELETE FROM question_progress WHERE practiced = 0 AND TRIM(COALESCE(notes,'')) = ''").run();
+  res.json({ success: true });
+});
+
+// Practice state / notes — works for both sources via the composite key
+app.put('/api/questions/:key', (req, res) => {
+  const q = getQuestion(req.params.key);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  let { practiced, practiced_at } = q;
+  if (req.body.practiced !== undefined) {
+    practiced = req.body.practiced ? 1 : 0;
+    practiced_at = practiced ? new Date().toISOString() : null;
+  }
+  const notes = req.body.notes !== undefined ? String(req.body.notes) : q.notes;
+  if (!practiced && !notes.trim()) {
+    db.prepare('DELETE FROM question_progress WHERE question_key = ?').run(q.key);
+  } else {
+    db.prepare(`
+      INSERT INTO question_progress (question_key, practiced, practiced_at, notes) VALUES (?, ?, ?, ?)
+      ON CONFLICT(question_key) DO UPDATE SET practiced = excluded.practiced, practiced_at = excluded.practiced_at, notes = excluded.notes
+    `).run(q.key, practiced, practiced_at, notes);
+  }
+  res.json(getQuestion(req.params.key));
+});
+
+// ── Next Role (Lara Hogan's 4-lists framework) ────────────────────────────────
+
+const NEXT_ROLE_BUCKETS = new Set(['must', 'nice', 'dont']);
+
+function readAppSetting(key) {
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key);
+  return row ? row.value : '';
+}
+
+app.get('/api/next-role', (req, res) => {
+  res.json({
+    optimizing_for: readAppSetting('next_role_optimizing_for'),
+    criteria: db.prepare('SELECT * FROM next_role_criteria ORDER BY order_index, id').all(),
+    checks: db.prepare('SELECT job_id, criteria_id, met FROM job_criteria_checks').all(),
+  });
+});
+
+app.put('/api/next-role', (req, res) => {
+  const { optimizing_for = '' } = req.body;
+  db.prepare('INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+    .run('next_role_optimizing_for', String(optimizing_for));
+  res.json({ success: true });
+});
+
+app.post('/api/next-role/criteria', (req, res) => {
+  const { bucket = 'must', text = '' } = req.body;
+  if (!NEXT_ROLE_BUCKETS.has(bucket)) return res.status(400).json({ error: 'Invalid bucket' });
+  const maxOrder = db.prepare('SELECT COALESCE(MAX(order_index), -1) as m FROM next_role_criteria WHERE bucket = ?').get(bucket).m;
+  const result = db.prepare('INSERT INTO next_role_criteria (bucket, text, order_index) VALUES (?, ?, ?)')
+    .run(bucket, String(text), maxOrder + 1);
+  res.status(201).json(db.prepare('SELECT * FROM next_role_criteria WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/next-role/criteria/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM next_role_criteria WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const { text = existing.text, bucket = existing.bucket } = req.body;
+  if (!NEXT_ROLE_BUCKETS.has(bucket)) return res.status(400).json({ error: 'Invalid bucket' });
+  db.prepare('UPDATE next_role_criteria SET text = ?, bucket = ? WHERE id = ?')
+    .run(String(text), bucket, req.params.id);
+  res.json(db.prepare('SELECT * FROM next_role_criteria WHERE id = ?').get(req.params.id));
+});
+
+app.delete('/api/next-role/criteria/:id', (req, res) => {
+  db.prepare('DELETE FROM next_role_criteria WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// Tri-state per-job check: met = 1 (yes) | -1 (no) | 0 (clear / unknown)
+app.put('/api/next-role/jobs/:jobId/checks', (req, res) => {
+  const { criteria_id, met = 0 } = req.body;
+  const job = db.prepare('SELECT id FROM job_applications WHERE id = ?').get(req.params.jobId);
+  const criteria = db.prepare('SELECT id FROM next_role_criteria WHERE id = ?').get(criteria_id);
+  if (!job || !criteria) return res.status(404).json({ error: 'Job or criteria not found' });
+  if (met === 0) {
+    db.prepare('DELETE FROM job_criteria_checks WHERE job_id = ? AND criteria_id = ?').run(job.id, criteria_id);
+  } else {
+    db.prepare(`
+      INSERT INTO job_criteria_checks (job_id, criteria_id, met) VALUES (?, ?, ?)
+      ON CONFLICT(job_id, criteria_id) DO UPDATE SET met = excluded.met
+    `).run(job.id, criteria_id, met > 0 ? 1 : -1);
+  }
+  res.json({ success: true });
+});
+
+// ── AI workflows ──────────────────────────────────────────────────────────────
+
+app.get('/api/ai/status', (req, res) => {
+  const s = llm.publicSettings();
+  res.json({ configured: s.configured, provider: s.provider, model: s.model });
+});
+
+// AI provider settings — the key itself is never returned, only has_key + hint
+app.get('/api/settings/ai', (req, res) => {
+  res.json(llm.publicSettings());
+});
+
+app.put('/api/settings/ai', (req, res) => {
+  llm.saveAiSettings(req.body || {});
+  res.json(llm.publicSettings());
+});
+
+app.post('/api/settings/ai/test', async (req, res) => {
+  try {
+    res.json(await llm.testConnection());
+  } catch (err) {
+    if (err.code === 'AI_NOT_CONFIGURED') return res.status(503).json({ ok: false, error: err.message });
+    res.status(502).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/resumes/:id/ai/rewrite-bullet', async (req, res) => {
+  const resume = db.prepare('SELECT * FROM resumes WHERE id = ?').get(req.params.id);
+  if (!resume) return res.status(404).json({ error: 'Not found' });
+
+  const { bullet, issue = '', exp_id = null, extra_facts = '' } = req.body;
+  if (!bullet || !String(bullet).trim()) return res.status(400).json({ error: 'bullet is required' });
+
+  let role = {};
+  if (exp_id) {
+    const exp = db.prepare('SELECT * FROM experiences WHERE id = ? AND resume_id = ?').get(exp_id, req.params.id);
+    if (exp) {
+      role = {
+        title: exp.title,
+        company: exp.company,
+        note: exp.note,
+        otherBullets: JSON.parse(exp.bullets || '[]').filter(b => b && b !== bullet),
+      };
+    }
+  }
+
+  try {
+    const result = await rewriteBullet({ bullet, issue, role, extraFacts: extra_facts });
+    res.json(result);
+  } catch (err) {
+    if (err.code === 'AI_NOT_CONFIGURED') return res.status(503).json({ error: err.message });
+    console.error('AI rewrite error:', err.message);
+    res.status(500).json({ error: 'Rewrite failed. Check the server logs and your API key.' });
+  }
+});
+
+// Audit trail — recorded when the user accepts an AI proposal
+app.post('/api/resumes/:id/ai/changes', (req, res) => {
+  const { workflow = '', field = '', before_text = '', after_text = '', accepted = true } = req.body;
+  const result = db.prepare(
+    'INSERT INTO ai_changes (resume_id, workflow, field, before_text, after_text, accepted) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(req.params.id, workflow, field, before_text, after_text, accepted ? 1 : 0);
+  res.status(201).json({ id: result.lastInsertRowid });
 });
 
 // ── PDF Export ────────────────────────────────────────────────────────────────

@@ -89,6 +89,30 @@ export const api = {
       delete: (id) => req('DELETE', `/profile/certifications/${id}`),
     },
   },
+  questions: {
+    list: () => req('GET', '/questions'),
+    update: (key, data) => req('PUT', `/questions/${encodeURIComponent(key)}`, data),
+    create: (data) => req('POST', '/questions', data),
+    updateCustom: (id, data) => req('PUT', `/questions/custom/${id}`, data),
+    deleteCustom: (id) => req('DELETE', `/questions/custom/${id}`),
+    reset: (scope) => req('POST', '/questions/reset', scope || {}),
+  },
+  nextRole: {
+    get: () => req('GET', '/next-role'),
+    update: (data) => req('PUT', '/next-role', data),
+    addCriteria: (data) => req('POST', '/next-role/criteria', data),
+    updateCriteria: (id, data) => req('PUT', `/next-role/criteria/${id}`, data),
+    deleteCriteria: (id) => req('DELETE', `/next-role/criteria/${id}`),
+    setCheck: (jobId, data) => req('PUT', `/next-role/jobs/${jobId}/checks`, data),
+  },
+  ai: {
+    status: () => req('GET', '/ai/status'),
+    rewriteBullet: (resumeId, data) => req('POST', `/resumes/${resumeId}/ai/rewrite-bullet`, data),
+    recordChange: (resumeId, data) => req('POST', `/resumes/${resumeId}/ai/changes`, data),
+    getSettings: () => req('GET', '/settings/ai'),
+    saveSettings: (data) => req('PUT', '/settings/ai', data),
+    testSettings: () => req('POST', '/settings/ai/test', {}),
+  },
   jobs: {
     list: () => req('GET', '/jobs'),
     create: (data) => req('POST', '/jobs', data),
@@ -97,6 +121,7 @@ export const api = {
     delete: (id) => req('DELETE', `/jobs/${id}`),
     attachResume: (id, data) => req('POST', `/jobs/${id}/resumes`, data),
     detachResume: (id, resumeId) => req('DELETE', `/jobs/${id}/resumes/${resumeId}`),
+    match: (id) => req('GET', `/jobs/${id}/match`),
     rounds: {
       create: (id, data) => req('POST', `/jobs/${id}/rounds`, data),
       update: (id, roundId, data) => req('PUT', `/jobs/${id}/rounds/${roundId}`, data),

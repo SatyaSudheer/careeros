@@ -3,6 +3,7 @@ import { Code2, Plus, Trash2, ChevronDown, X, GripVertical } from 'lucide-react'
 import { api } from '../../api.js';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import SectionShell from './SectionShell.jsx';
+import MarkdownTextarea from './MarkdownTextarea.jsx';
 
 function TechInput({ technologies, onChange }) {
   const [input, setInput] = useState('');
@@ -70,7 +71,7 @@ function TechInput({ technologies, onChange }) {
   );
 }
 
-function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, isDragging, isOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
+function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, onItemChange, isDragging, isOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const [form, setForm] = useState(project);
   const [open, setOpen] = useState(!project.name);
 
@@ -85,6 +86,7 @@ function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, isDraggi
   const set = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
+    onItemChange?.(next);
     schedule(next);
   };
 
@@ -142,7 +144,7 @@ function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, isDraggi
 
         {open && (
           <div className="border-t border-slate-100 px-3 pb-4 pt-3 space-y-2.5 animate-slide-down">
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               <div className="col-span-2">
                 <label className="field-label">Project Name</label>
                 <input value={form.name} onChange={e => set('name', e.target.value)}
@@ -165,12 +167,13 @@ function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, isDraggi
               </div>
               <div className="col-span-2">
                 <label className="field-label">Description</label>
-                <textarea
+                <MarkdownTextarea
                   value={form.description}
-                  onChange={e => set('description', e.target.value)}
+                  onChange={value => set('description', value)}
                   placeholder="What it does, key achievements, impact…"
-                  rows={3}
-                  className="input resize-none text-[13px] leading-relaxed"
+                  rows={4}
+                  className="resize-none text-[13px] leading-relaxed"
+                  compact
                 />
               </div>
               <div className="col-span-2">
@@ -185,7 +188,7 @@ function ProjectCard({ resumeId, project, onSaving, onSaved, onRefresh, isDraggi
   );
 }
 
-export default function ProjectsSection({ resumeId, items, onSaving, onSaved, onRefresh }) {
+export default function ProjectsSection({ resumeId, items, onSaving, onSaved, onRefresh, onItemChange, onItemsChange }) {
   const [localItems, setLocalItems] = useState(items);
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
@@ -218,6 +221,7 @@ export default function ProjectsSection({ resumeId, items, onSaving, onSaved, on
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     setLocalItems(next);
+    onItemsChange?.(next);
 
     await api.projects.reorder(resumeId, next.map(p => p.id));
   }, [dragId, localItems, resumeId]);
@@ -248,6 +252,7 @@ export default function ProjectsSection({ resumeId, items, onSaving, onSaved, on
             onSaving={onSaving}
             onSaved={onSaved}
             onRefresh={onRefresh}
+            onItemChange={onItemChange}
             isDragging={dragId === p.id}
             isOver={overId === p.id}
             onDragStart={(e) => handleDragStart(p.id, e)}

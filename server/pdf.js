@@ -75,7 +75,13 @@ const ACCENT_HEXES = [
   '#6366f1', '#4f46e5', '#e0e7ff', '#eef2ff', '#c7d2fe', '#a5b4fc',
   '#1e293b', '#0f172a', '#334155',
   '#94a3b8', '#cbd5e1', '#e2e8f0',
+  // Theme-specific accents: leadership, editorial, technical, heritage,
+  // graduate, academic, swiss — so every theme follows the accent picker
+  '#1e3a8a', '#4a5568', '#1d4ed8', '#bfdbfe', '#7c2d12', '#9ca3af',
+  '#047857', '#a7f3d0', '#d1fae5', '#14532d', '#dc2626',
 ];
+const LIGHT_TINTS = ['#e0e7ff', '#eef2ff', '#c7d2fe', '#e2e8f0', '#bfdbfe', '#a7f3d0', '#d1fae5'];
+const MID_TINTS   = ['#a5b4fc', '#94a3b8', '#cbd5e1', '#9ca3af'];
 
 function clampScale(value) {
   const n = Number(value);
@@ -94,8 +100,8 @@ function tint(hex, amount) {
 function mapAccentColor(color, accent) {
   if (!accent) return color;
   const lower = String(color).toLowerCase();
-  if (['#e0e7ff', '#eef2ff', '#c7d2fe', '#e2e8f0'].includes(lower)) return tint(accent, 0.86);
-  if (['#a5b4fc', '#94a3b8', '#cbd5e1'].includes(lower)) return tint(accent, 0.45);
+  if (LIGHT_TINTS.includes(lower)) return tint(accent, 0.86);
+  if (MID_TINTS.includes(lower)) return tint(accent, 0.45);
   return accent;
 }
 
@@ -819,6 +825,264 @@ function buildHeritageHtml(resume) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GRADUATE — new grads & early career: education and projects lead
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GR_GREEN = '#047857';
+
+function gradSection(title, content) {
+  return `<div style="margin-bottom:13px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;margin-top:2px;">
+      <span style="font-family:Aptos,'Segoe UI',Arial,sans-serif;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.16em;color:${GR_GREEN};white-space:nowrap;">${esc(title)}</span>
+      <div style="flex:1;height:1px;background:#a7f3d0;"></div>
+    </div>${content}</div>`;
+}
+
+function buildGraduateHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+  const F     = "font-family:Aptos,'Segoe UI',Arial,sans-serif;";
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="margin-bottom:14px;border-bottom:2px solid ${GR_GREEN};padding-bottom:12px;">
+      <h1 style="${F}font-size:22px;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.01em;line-height:1.15;">${esc(p.full_name || '')}</h1>
+      ${p.tagline  ? `<p style="${F}font-size:12px;font-weight:600;color:${GR_GREEN};margin:4px 0 0;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="${F}font-size:11px;color:#64748b;margin:2px 0 0;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<p style="${F}font-size:10.2px;color:#475569;margin:7px 0 0;line-height:1.4;">${esc(contactParts.join('  ·  '))}</p>` : ''}
+    </div>`;
+
+  const eduRowsGrad = edus.map(e => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;page-break-inside:avoid;">
+      <div style="flex:1;min-width:0;">
+        <p style="${F}font-size:12.2px;font-weight:700;color:#0f172a;margin:0;">${esc(e.school)}</p>
+        <p style="${F}font-size:11.5px;color:#374151;margin:1px 0 0;">${esc([e.degree, e.field].filter(Boolean).join(', '))}${e.gpa ? `<span style="color:${GR_GREEN};font-weight:600;margin-left:8px;">GPA ${esc(e.gpa)}</span>` : ''}</p>
+        ${e.details ? `<p style="${F}font-size:10.8px;color:#64748b;margin:2px 0 0;">${esc(e.details)}</p>` : ''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;padding-left:12px;">
+        ${dateSpan(e.start_date, e.end_date)}
+        ${e.location ? `<p style="${F}font-size:10.2px;color:#94a3b8;margin:2px 0 0;">${esc(e.location)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  const summaryHtml    = p.summary    ? gradSection('Summary', `<p style="${F}font-size:11.8px;line-height:1.55;color:#374151;margin:0;">${mdHtml(p.summary)}</p>`) : '';
+  const highlightsHtml = his.length   ? gradSection('Highlights', bulletList(his.map(h => h.text), 11.8)) : '';
+  const educationHtml  = edus.length  ? gradSection('Education', eduRowsGrad) : '';
+  const skillsHtml     = skls.length  ? gradSection('Skills', skillRows(skls, { boldCat: true, catColor: '#0f172a' })) : '';
+  const projectsHtml   = pros.length  ? gradSection('Projects', projRows(pros, { nameColor: GR_GREEN, descColor: '#374151' })) : '';
+  const experienceHtml = exps.length  ? gradSection('Experience', expRows(exps, { titleFirst: true, titleColor: GR_GREEN, titleBold: true, companyColor: '#0f172a' })) : '';
+  const certsHtml      = certs.length ? gradSection('Certifications & Training', certRows(certs, { nameColor: '#0f172a', metaColor: GR_GREEN })) : '';
+
+  const body = `${header}${summaryHtml}${highlightsHtml}${educationHtml}${skillsHtml}${projectsHtml}${experienceHtml}${certsHtml}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC — research, faculty, PhD & scientist roles (CV style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AC_SERIF = "font-family:Georgia,'Garamond','Times New Roman',serif;";
+const AC_GREEN = '#14532D';
+
+function academicSection(title, content) {
+  return `<div style="margin-bottom:14px;">
+    <div style="border-bottom:1px solid ${AC_GREEN};padding-bottom:3px;margin-bottom:9px;margin-top:2px;">
+      <span style="${AC_SERIF}font-size:12px;font-weight:700;font-variant:small-caps;letter-spacing:0.1em;color:${AC_GREEN};">${esc(title)}</span>
+    </div>${content}</div>`;
+}
+
+function acBullets(items) {
+  const filledItems = (items || []).filter(Boolean);
+  if (!filledItems.length) return '';
+  return `<ul style="margin-top:4px;list-style:none;padding:0;display:flex;flex-direction:column;gap:4px;">
+    ${filledItems.map(b => `<li style="display:flex;align-items:flex-start;gap:8px;${AC_SERIF}font-size:11.5px;line-height:1.6;color:#1C1917;"><span style="color:#78716C;flex-shrink:0;line-height:1.6;font-size:11px;">&#8226;</span><span>${mdHtml(b)}</span></li>`).join('')}
+  </ul>`;
+}
+
+function buildAcademicHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="text-align:center;margin-bottom:16px;">
+      <h1 style="${AC_SERIF}font-size:25px;font-weight:600;font-variant:small-caps;color:#1C1917;margin:0;line-height:1.15;letter-spacing:0.03em;">${esc(p.full_name || '')}</h1>
+      ${p.tagline  ? `<p style="${AC_SERIF}font-size:12.5px;font-style:italic;color:#57534E;margin:5px 0 0;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="${AC_SERIF}font-size:11px;color:#78716C;margin:2px 0 0;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<p style="${AC_SERIF}font-size:10.5px;color:#57534E;margin:7px 0 0;line-height:1.4;">${contactParts.map(esc).join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;')}</p>` : ''}
+      <div style="height:1px;background:${AC_GREEN};margin:12px auto 0;max-width:460px;opacity:0.5;"></div>
+    </div>`;
+
+  const eduRowsAc = edus.map(e => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;page-break-inside:avoid;">
+      <div style="flex:1;min-width:0;">
+        <p style="${AC_SERIF}font-size:12.5px;font-weight:700;color:#1C1917;margin:0;">${esc(e.school)}</p>
+        <p style="${AC_SERIF}font-size:11.5px;font-style:italic;color:#57534E;margin:1px 0 0;">${esc([e.degree, e.field].filter(Boolean).join(', '))}${e.gpa ? `<span style="color:#78716C;margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}</p>
+        ${e.details ? `<p style="${AC_SERIF}font-size:11px;color:#78716C;margin:2px 0 0;">${esc(e.details)}</p>` : ''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;padding-left:8px;">
+        ${dateSpan(e.start_date, e.end_date)}
+        ${e.location ? `<p style="font-size:10.2px;color:#94a3b8;margin:2px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(e.location)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  const expRowsAc = exps.map(e => `
+    <div style="margin-bottom:11px;page-break-inside:avoid;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <p style="${AC_SERIF}font-size:12.5px;font-weight:700;color:#1C1917;margin:0;">${esc(e.title)}</p>
+          <p style="${AC_SERIF}font-size:11.5px;font-style:italic;color:#57534E;margin:1px 0 0;">${esc([e.company, e.location].filter(Boolean).join(' · '))}</p>
+        </div>
+        ${dateSpan(e.start_date, e.end_date, e.current_job)}
+      </div>
+      ${e.note ? `<p style="${AC_SERIF}font-size:11px;font-style:italic;color:#78716C;line-height:1.5;margin:3px 0 2px;">${mdHtml(e.note)}</p>` : ''}
+      ${acBullets(e.bullets)}
+    </div>`).join('');
+
+  const projRowsAc = pros.map(proj => `
+    <p style="${AC_SERIF}font-size:11.5px;line-height:1.6;color:#1C1917;margin:0 0 6px;page-break-inside:avoid;">
+      <strong style="color:${AC_GREEN};">${esc(proj.name)}</strong>${proj.description ? ` ${mdHtml(proj.description)}` : ''}
+    </p>`).join('');
+
+  const skillRowsAc = skls.map(s => `
+    <div style="display:flex;gap:10px;margin-bottom:5px;">
+      ${s.category ? `<span style="${AC_SERIF}font-size:11.5px;font-weight:700;font-variant:small-caps;color:${AC_GREEN};min-width:96px;flex-shrink:0;">${esc(s.category)}</span>` : ''}
+      <span style="${AC_SERIF}font-size:11.5px;color:#1C1917;flex:1;">${esc((s.items || []).join(', '))}</span>
+    </div>`).join('');
+
+  const certGroups = groupCerts(certs);
+  const certRowsAc = certGroups.map(g => `
+    <div style="${AC_SERIF}font-size:11.2px;line-height:1.55;color:#1C1917;margin-bottom:4px;page-break-inside:avoid;">
+      ${g.label ? `<strong>${esc(g.label)}: </strong>` : ''}
+      ${g.items.map((c, ci) => {
+        const year = certYear(c.issued_date || c.expiry_date);
+        return `${ci > 0 ? '<span style="color:#78716C;padding:0 5px;">—</span>' : ''}${esc(c.name)}${c.issuer ? `<span style="color:#57534E;"> · ${esc(c.issuer)}</span>` : ''}${year ? `<span style="color:#78716C;"> · ${esc(year)}</span>` : ''}`;
+      }).join('')}
+    </div>`).join('');
+
+  const summaryHtml    = p.summary    ? academicSection('Research Profile', `<p style="${AC_SERIF}font-size:11.5px;line-height:1.62;color:#1C1917;margin:0;">${mdHtml(p.summary)}</p>`) : '';
+  const highlightsHtml = his.length   ? academicSection('Selected Achievements', acBullets(his.map(h => h.text))) : '';
+  const educationHtml  = edus.length  ? academicSection('Education', eduRowsAc) : '';
+  const projectsHtml   = pros.length  ? academicSection('Research & Publications', projRowsAc) : '';
+  const experienceHtml = exps.length  ? academicSection('Appointments & Experience', expRowsAc) : '';
+  const skillsHtml     = skls.length  ? academicSection('Skills & Methods', skillRowsAc) : '';
+  const certsHtml      = certs.length ? academicSection('Honors & Certifications', certRowsAc) : '';
+
+  const body = `${header}${summaryHtml}${highlightsHtml}${educationHtml}${projectsHtml}${experienceHtml}${skillsHtml}${certsHtml}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SWISS — international typographic style: black, red, precise grid
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SW_HELV = "font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;";
+const SW_RED  = '#DC2626';
+const SW_INK  = '#111111';
+
+function swissSection(title, content) {
+  return `<div style="margin-bottom:13px;">
+    <div style="margin-bottom:9px;margin-top:2px;">
+      <div style="height:2px;background:${SW_INK};margin-bottom:5px;"></div>
+      <span style="${SW_HELV}font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.22em;color:${SW_INK};">${esc(title)}</span>
+    </div>${content}</div>`;
+}
+
+function swBullets(items) {
+  const filledItems = (items || []).filter(Boolean);
+  if (!filledItems.length) return '';
+  return `<ul style="margin-top:4px;list-style:none;padding:0;display:flex;flex-direction:column;gap:4px;">
+    ${filledItems.map(b => `<li style="display:flex;align-items:flex-start;gap:8px;${SW_HELV}font-size:11.2px;line-height:1.55;color:#262626;"><span style="color:${SW_RED};flex-shrink:0;line-height:1.55;font-size:10px;">&#8226;</span><span>${mdHtml(b)}</span></li>`).join('')}
+  </ul>`;
+}
+
+function buildSwissHtml(resume) {
+  const p     = resume.personal       || {};
+  const his   = resume.highlights     || [];
+  const exps  = resume.experiences    || [];
+  const edus  = resume.education      || [];
+  const skls  = resume.skills         || [];
+  const pros  = resume.projects       || [];
+  const certs = resume.certifications || [];
+
+  const contactParts = [p.email, p.phone, p.location,
+    p.website  && urlDisplay(p.website),
+    p.linkedin && urlDisplay(p.linkedin),
+    p.github   && urlDisplay(p.github),
+  ].filter(Boolean);
+
+  const header = `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:10px;height:10px;background:${SW_RED};flex-shrink:0;margin-top:8px;"></div>
+        <h1 style="${SW_HELV}font-size:24px;font-weight:800;text-transform:uppercase;color:${SW_INK};margin:0;letter-spacing:0.04em;line-height:1.1;">${esc(p.full_name || '')}</h1>
+      </div>
+      ${p.tagline  ? `<p style="${SW_HELV}font-size:11.5px;font-weight:600;color:${SW_RED};margin:6px 0 0;letter-spacing:0.06em;text-transform:uppercase;">${esc(p.tagline)}</p>` : ''}
+      ${p.subtitle ? `<p style="${SW_HELV}font-size:10.8px;color:#525252;margin:3px 0 0;">${esc(p.subtitle)}</p>` : ''}
+      ${contactParts.length ? `<p style="${SW_HELV}font-size:10px;color:#404040;margin:8px 0 0;letter-spacing:0.03em;line-height:1.45;">${esc(contactParts.join('   /   '))}</p>` : ''}
+    </div>`;
+
+  const expRowsSw = exps.map(e => `
+    <div style="margin-bottom:11px;page-break-inside:avoid;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <p style="${SW_HELV}font-size:12px;font-weight:800;color:${SW_INK};margin:0;letter-spacing:0.01em;">${esc(e.company)}</p>
+          <p style="${SW_HELV}font-size:11px;font-weight:500;color:${SW_RED};margin:1px 0 0;">${esc([e.title, e.location].filter(Boolean).join(' — '))}</p>
+        </div>
+        <span style="${SW_HELV}font-size:10px;font-weight:600;color:#737373;white-space:nowrap;flex-shrink:0;padding-left:12px;letter-spacing:0.04em;">${esc([e.start_date, e.current_job ? 'Present' : e.end_date].filter(Boolean).join(' – '))}</span>
+      </div>
+      ${e.note ? `<p style="${SW_HELV}font-size:10.8px;font-style:italic;color:#525252;line-height:1.5;margin:4px 0 2px;">${mdHtml(e.note)}</p>` : ''}
+      ${swBullets(e.bullets)}
+    </div>`).join('');
+
+  const eduRowsSw = edus.map(e => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;page-break-inside:avoid;">
+      <div style="flex:1;min-width:0;">
+        <p style="${SW_HELV}font-size:12px;font-weight:800;color:${SW_INK};margin:0;">${esc(e.school)}</p>
+        <p style="${SW_HELV}font-size:11px;color:#404040;margin:1px 0 0;">${esc([e.degree, e.field].filter(Boolean).join(', '))}${e.gpa ? `<span style="color:#737373;margin-left:8px;">· GPA ${esc(e.gpa)}</span>` : ''}</p>
+      </div>
+      <span style="${SW_HELV}font-size:10px;font-weight:600;color:#737373;white-space:nowrap;flex-shrink:0;padding-left:12px;">${esc([e.start_date, e.end_date].filter(Boolean).join(' – '))}</span>
+    </div>`).join('');
+
+  const skillRowsSw = skls.map(s => `
+    <div style="display:grid;grid-template-columns:110px 1fr;column-gap:10px;align-items:baseline;margin-bottom:5px;">
+      ${s.category ? `<span style="${SW_HELV}font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:${SW_INK};">${esc(s.category)}</span>` : '<span></span>'}
+      <span style="${SW_HELV}font-size:11.2px;color:#262626;">${esc((s.items || []).join(' / '))}</span>
+    </div>`).join('');
+
+  const summaryHtml    = p.summary    ? swissSection('Profile', `<p style="${SW_HELV}font-size:11.5px;line-height:1.55;color:#262626;margin:0;">${mdHtml(p.summary)}</p>`) : '';
+  const highlightsHtml = his.length   ? swissSection('Highlights', swBullets(his.map(h => h.text))) : '';
+  const experienceHtml = exps.length  ? swissSection('Experience', expRowsSw) : '';
+  const educationHtml  = edus.length  ? swissSection('Education', eduRowsSw) : '';
+  const skillsHtml     = skls.length  ? swissSection('Competencies', skillRowsSw) : '';
+  const projectsHtml   = pros.length  ? swissSection('Projects', projRows(pros, { nameColor: SW_INK, descColor: '#262626', fontSize: 11.2 })) : '';
+  const certsHtml      = certs.length ? swissSection('Certifications', certRows(certs, { nameColor: SW_INK, metaColor: '#525252' })) : '';
+
+  const body = `${header}${summaryHtml}${highlightsHtml}${experienceHtml}${educationHtml}${skillsHtml}${projectsHtml}${certsHtml}`;
+  return wrap(body);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function applyCompactMode(resume) {
   if (!resume.compact_mode) return resume;
@@ -847,8 +1111,14 @@ function buildResumeHtml(resumeRaw) {
     case 'editorial':  html = buildEditorialHtml(resume); break;
     case 'technical':  html = buildTechnicalHtml(resume); break;
     case 'heritage':   html = buildHeritageHtml(resume); break;
+    case 'graduate':   html = buildGraduateHtml(resume); break;
+    case 'academic':   html = buildAcademicHtml(resume); break;
+    case 'swiss':      html = buildSwissHtml(resume); break;
     default:           html = buildClassicHtml(resume);
   }
+  // Document title becomes the PDF Title metadata in Chrome's print-to-PDF
+  const name = String((resume.personal || {}).full_name || '').trim();
+  html = html.replace('<head>', `<head><title>${esc(name ? `${name} — Resume` : 'Resume')}</title>`);
   return applyResumeAppearance(html, resume);
 }
 
@@ -1605,9 +1875,22 @@ async function generatePdf(html) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    // Trailing bottom margins on the document's last elements can spill a few
+    // px past the final page boundary, making Chrome emit a blank last page.
+    // They are invisible at the document end, so zero the whole last-child
+    // chain before printing.
+    await page.evaluate(() => {
+      let el = document.body.lastElementChild;
+      while (el) {
+        el.style.marginBottom = '0';
+        el = el.lastElementChild;
+      }
+    });
     return await page.pdf({
       format: 'Letter',
       printBackground: true,
+      // Tagged PDFs carry document structure — better for ATS parsers and screen readers
+      tagged: true,
       margin: { top: '0.45in', right: '0.45in', bottom: '0.45in', left: '0.45in' },
     });
   } finally {
