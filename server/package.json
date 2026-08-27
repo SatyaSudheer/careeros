@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning index.js",
-    "dev": "nodemon --exec 'node --disable-warning=ExperimentalWarning' index.js"
+    "dev": "nodemon --exec \"node --disable-warning=ExperimentalWarning\" index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
