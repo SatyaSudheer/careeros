@@ -32,7 +32,7 @@ dev:
 
 dev-bg: _kill-stale
 	@echo "Starting server (nodemon)…"
-	@cd $(SERVER_DIR) && nohup npx nodemon --exec 'node --disable-warning=ExperimentalWarning' index.js \
+	@cd $(SERVER_DIR) && nohup npx nodemon index.js \
 		> $(SERVER_LOG) 2>&1 & echo $$! > $(SERVER_PID)
 	@sleep 1
 	@echo "Starting client (vite dev)…"
@@ -45,7 +45,7 @@ dev-bg: _kill-stale
 
 start: _kill-stale
 	@echo "Starting server…"
-	@cd $(SERVER_DIR) && nohup node --disable-warning=ExperimentalWarning index.js \
+	@cd $(SERVER_DIR) && nohup node index.js \
 		> $(SERVER_LOG) 2>&1 & echo $$! > $(SERVER_PID)
 	@sleep 1
 	@echo "Starting client…"
