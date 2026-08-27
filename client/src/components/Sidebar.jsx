@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Briefcase, BookOpen, User, LayoutDashboard, Sparkles, Compass, Library } from 'lucide-react';
+import { FileText, Briefcase, BookOpen, User, LayoutDashboard, Sparkles, Compass, Library, Type } from 'lucide-react';
 import AiSettingsModal from './AiSettingsModal.jsx';
+import AppearanceModal from './AppearanceModal.jsx';
 
 const NAV = [
   { path: '/',      icon: LayoutDashboard, label: 'Dashboard',    exact: true },
@@ -37,6 +38,7 @@ function NavItem({ path, icon: Icon, label, exact }) {
 
 export default function Sidebar() {
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   return (
     <aside className="flex h-screen w-[216px] flex-shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-14 items-center gap-2.5 border-b border-slate-100 px-4">
@@ -55,6 +57,13 @@ export default function Sidebar() {
       <div className="border-t border-slate-100 p-2 pb-3">
         {BOTTOM.map(item => <NavItem key={item.path} {...item} />)}
         <button
+          onClick={() => setAppearanceOpen(true)}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13.5px] font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
+        >
+          <Type className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          Appearance
+        </button>
+        <button
           onClick={() => setAiSettingsOpen(true)}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13.5px] font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
         >
@@ -63,6 +72,7 @@ export default function Sidebar() {
         </button>
       </div>
 
+      {appearanceOpen && <AppearanceModal onClose={() => setAppearanceOpen(false)} />}
       {aiSettingsOpen && <AiSettingsModal onClose={() => setAiSettingsOpen(false)} />}
     </aside>
   );

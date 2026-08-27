@@ -817,9 +817,13 @@ export default function Profile() {
   const [addingSkill, setAddingSkill] = useState(false);
   const [addingProj,  setAddingProj]  = useState(false);
   const [addingCert,  setAddingCert]  = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    api.profile.init().then(setProfile).finally(() => setLoading(false));
+    api.profile.init()
+      .then(setProfile)
+      .catch((err) => setLoadError(err.message || 'Failed to load profile'))
+      .finally(() => setLoading(false));
   }, []);
 
   const onSaving = useCallback(() => setSaveState('saving'), []);
@@ -850,6 +854,21 @@ export default function Profile() {
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="h-7 w-7 animate-spin text-indigo-400" />
         <p className="text-sm text-slate-400">Loading profile…</p>
+      </div>
+    </div>
+  );
+
+  if (loadError || !profile) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3 text-center max-w-sm">
+        <CloudOff className="h-7 w-7 text-rose-400" />
+        <p className="text-sm font-semibold text-slate-700">Couldn't load your profile</p>
+        <p className="text-xs text-slate-400">
+          {loadError || 'Unknown error'} — make sure the CareerOS server is running (port 3001).
+        </p>
+        <button onClick={() => window.location.reload()} className="btn-secondary !py-1.5 !px-4 !text-xs mt-2">
+          Retry
+        </button>
       </div>
     </div>
   );

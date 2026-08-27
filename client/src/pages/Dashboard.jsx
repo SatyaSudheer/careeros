@@ -100,6 +100,7 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [cloningId, setCloningId]   = useState(null);
+  const [loadError, setLoadError]   = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,6 +112,8 @@ export default function Dashboard() {
       setResumes(resumes);
       setProfile(prof);
       setMetrics(metricData);
+    }).catch((err) => {
+      setLoadError(err.message || 'Failed to reach the CareerOS server');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -167,6 +170,12 @@ export default function Dashboard() {
             {[1, 2, 3].map(i => (
               <div key={i} className="h-44 rounded-xl bg-slate-100 animate-pulse" />
             ))}
+          </div>
+        ) : loadError ? (
+          <div className="mt-10 flex flex-col items-center text-center gap-2">
+            <p className="text-sm font-semibold text-rose-500">Couldn't reach the CareerOS server</p>
+            <p className="text-xs text-slate-400 max-w-sm">{loadError} — make sure the server (port 3001) is running, then reload.</p>
+            <button onClick={() => window.location.reload()} className="btn-secondary !py-1.5 !px-4 !text-xs mt-2">Retry</button>
           </div>
         ) : resumes.length === 0 && !profile ? (
           /* ── Empty state ─────────────────────────────────── */

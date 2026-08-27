@@ -3,6 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Interface scale — set from localStorage in uiScale.js. Scales all app
+       text, controls, and spacing at once, which rem units could not do
+       because the UI uses hardcoded px sizes throughout. */
+    --ui-scale: 1;
+  }
+  #root {
+    zoom: var(--ui-scale);
+  }
+  /* A resume page represents a physical Letter sheet and feeds the pagination
+     math, so it must stay pixel-exact. Counter-zoom cancels the interface
+     scale, leaving preview output identical to the exported PDF. */
+  #resume-print {
+    zoom: calc(1 / var(--ui-scale));
+  }
   body {
     @apply bg-slate-50 text-slate-800 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
