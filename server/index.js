@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
-const { buildResumeHtml, generatePdf } = require('./pdf');
+const { buildResumeHtml, buildCoverLetterHtml, generatePdf } = require('./pdf');
 const { buildResumeText, buildResumeDocx } = require('./exporters');
 const { aiConfigured, rewriteBullet } = require('./ai');
 const llm = require('./llm');
@@ -335,6 +335,17 @@ function jobWithResumes(job) {
   return { ...job, resumes, rounds, preparation_plans };
 }
 
+function coverLetterWithResumes(letter) {
+  const resumes = db.prepare(`
+    SELECT r.id, r.title, r.template, clr.tagged_at
+    FROM cover_letter_resumes clr
+    JOIN resumes r ON r.id = clr.resume_id
+    WHERE clr.cover_letter_id = ?
+    ORDER BY clr.tagged_at DESC
+  `).all(letter.id);
+  return { ...letter, body: JSON.parse(letter.body || '[]'), resumes };
+}
+
 function jobMetrics() {
   const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM job_applications GROUP BY status').all();
   const byStatus = statusRows.reduce((acc, row) => {
@@ -344,6 +355,7 @@ function jobMetrics() {
   const resumeCount = db.prepare('SELECT COUNT(*) as count FROM resumes WHERE is_profile = 0').get().count;
   const jobCount = db.prepare('SELECT COUNT(*) as count FROM job_applications').get().count;
   const resumeShareCount = db.prepare('SELECT COUNT(*) as count FROM job_application_resumes').get().count;
+  const coverLetterCount = db.prepare('SELECT COUNT(*) as count FROM cover_letters').get().count;
   const roundCount = db.prepare('SELECT COUNT(*) as count FROM job_rounds').get().count;
   const prepPlanCount = db.prepare('SELECT COUNT(*) as count FROM preparation_plans').get().count;
   const prepItemStats = db.prepare('SELECT COUNT(*) as total, SUM(CASE WHEN status = \'done\' THEN 1 ELSE 0 END) as done FROM prep_plan_items').get();
@@ -351,6 +363,7 @@ function jobMetrics() {
     resumes: resumeCount,
     jobs: jobCount,
     resumeShares: resumeShareCount,
+    coverLetters: coverLetterCount,
     rounds: roundCount,
     prepPlans: prepPlanCount,
     prepItemsTotal: prepItemStats.total || 0,
@@ -483,6 +496,139 @@ app.delete('/api/jobs/:id/resumes/:resumeId', (req, res) => {
     .run(req.params.id, req.params.resumeId);
   db.prepare('UPDATE job_applications SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
   res.json({ success: true });
+});
+
+// ── Cover Letters ────────────────────────────────────────────────────────────
+
+app.get('/api/cover-letters', (req, res) => {
+  const letters = db.prepare('SELECT * FROM cover_letters ORDER BY updated_at DESC').all();
+  res.json(letters.map(coverLetterWithResumes));
+});
+
+app.post('/api/cover-letters', (req, res) => {
+  const { title = 'Untitled Cover Letter', company = '', role_title = '', job_id = null } = req.body || {};
+
+  // Prefill sender fields from the master profile, if one exists — mirrors
+  // how resumes can be created "from profile".
+  const profile = db.prepare('SELECT * FROM profile_personal WHERE id = 1').get() || {};
+
+  const result = db.prepare(`
+    INSERT INTO cover_letters
+      (title, company, role_title, job_id, sender_name, sender_email, sender_phone, sender_location, sender_linkedin)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    title, company, role_title, job_id || null,
+    profile.full_name || '', profile.email || '', profile.phone || '', profile.location || '', profile.linkedin || ''
+  );
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(coverLetterWithResumes(letter));
+});
+
+app.get('/api/cover-letters/:id', (req, res) => {
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  if (!letter) return res.status(404).json({ error: 'Not found' });
+  res.json(coverLetterWithResumes(letter));
+});
+
+app.put('/api/cover-letters/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const next = { ...existing, ...req.body };
+  const parsedScale = Number(next.font_scale);
+  const safeScale = Number.isFinite(parsedScale) ? Math.min(1.18, Math.max(0.88, parsedScale)) : 1;
+  const bodyJson = Array.isArray(next.body) ? JSON.stringify(next.body) : (existing.body || '[]');
+  db.prepare(`
+    UPDATE cover_letters SET
+      title = ?, company = ?, role_title = ?, job_id = ?,
+      recipient_name = ?, recipient_title = ?, recipient_location = ?,
+      letter_date = ?, salutation = ?, body = ?, closing = ?,
+      sender_name = ?, sender_email = ?, sender_phone = ?, sender_location = ?, sender_linkedin = ?,
+      template = ?, font_scale = ?, accent_color = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(
+    next.title || 'Untitled Cover Letter', next.company || '', next.role_title || '', next.job_id || null,
+    next.recipient_name || '', next.recipient_title || '', next.recipient_location || '',
+    next.letter_date || '', next.salutation || 'Dear Hiring Team,', bodyJson, next.closing || 'Sincerely,',
+    next.sender_name || '', next.sender_email || '', next.sender_phone || '', next.sender_location || '', next.sender_linkedin || '',
+    next.template || 'classic', safeScale, next.accent_color || '',
+    req.params.id,
+  );
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  res.json(coverLetterWithResumes(letter));
+});
+
+app.delete('/api/cover-letters/:id', (req, res) => {
+  db.prepare('DELETE FROM cover_letters WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/cover-letters/:id/clone', (req, res) => {
+  const src = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  if (!src) return res.status(404).json({ error: 'Not found' });
+  const result = db.prepare(`
+    INSERT INTO cover_letters
+      (title, company, role_title, job_id, recipient_name, recipient_title, recipient_location,
+       letter_date, salutation, body, closing, sender_name, sender_email, sender_phone, sender_location,
+       sender_linkedin, template, font_scale, accent_color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    `Copy of ${src.title}`, src.company, src.role_title, src.job_id,
+    src.recipient_name, src.recipient_title, src.recipient_location,
+    src.letter_date, src.salutation, src.body, src.closing,
+    src.sender_name, src.sender_email, src.sender_phone, src.sender_location,
+    src.sender_linkedin, src.template, src.font_scale, src.accent_color,
+  );
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(coverLetterWithResumes(letter));
+});
+
+// Tag / untag active resumes — a cover letter can be linked to one or more resumes
+app.post('/api/cover-letters/:id/resumes', (req, res) => {
+  const { resume_id } = req.body;
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  const resume = db.prepare('SELECT * FROM resumes WHERE id = ? AND is_profile = 0').get(resume_id);
+  if (!letter || !resume) return res.status(404).json({ error: 'Cover letter or resume not found' });
+  db.prepare(`
+    INSERT INTO cover_letter_resumes (cover_letter_id, resume_id)
+    VALUES (?, ?)
+    ON CONFLICT(cover_letter_id, resume_id) DO UPDATE SET tagged_at = CURRENT_TIMESTAMP
+  `).run(req.params.id, resume_id);
+  db.prepare('UPDATE cover_letters SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
+  res.status(201).json(coverLetterWithResumes(db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id)));
+});
+
+app.delete('/api/cover-letters/:id/resumes/:resumeId', (req, res) => {
+  db.prepare('DELETE FROM cover_letter_resumes WHERE cover_letter_id = ? AND resume_id = ?')
+    .run(req.params.id, req.params.resumeId);
+  db.prepare('UPDATE cover_letters SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// PDF export — mirrors /api/resumes/:id/pdf
+app.get('/api/cover-letters/:id/pdf', async (req, res) => {
+  const letter = db.prepare('SELECT * FROM cover_letters WHERE id = ?').get(req.params.id);
+  if (!letter) return res.status(404).json({ error: 'Not found' });
+
+  try {
+    const html = buildCoverLetterHtml(letter);
+    const pdf  = await generatePdf(html);
+
+    const filename = `${(letter.title || 'cover_letter').replace(/[^a-z0-9\s-]/gi, '').trim().replace(/\s+/g, '_') || 'cover_letter'}.pdf`;
+    const buf = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buf.length,
+    });
+    res.send(buf);
+  } catch (err) {
+    if (err.code === 'CHROME_NOT_FOUND') {
+      return res.status(503).json({ error: err.message });
+    }
+    console.error('Cover letter PDF export error:', err.message);
+    res.status(500).json({ error: 'PDF generation failed. Check the server logs.' });
+  }
 });
 
 // ── JD match scores ───────────────────────────────────────────────────────────

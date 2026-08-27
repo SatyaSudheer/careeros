@@ -1898,4 +1898,81 @@ async function generatePdf(html) {
   }
 }
 
-module.exports = { buildResumeHtml, generatePdf, findChrome };
+
+// ── Cover Letters ─────────────────────────────────────────────────────────────
+
+const CL_NAVY     = '#1E3A8A';
+const CL_CHARCOAL = '#1F2937';
+const CL_MUTED    = '#6B7280';
+
+function applyLetterAppearance(html, letter) {
+  const scale = clampScale(letter.font_scale);
+  const accent = String(letter.accent_color || '').trim();
+  let next = html.replace(/font-size:\s*([0-9.]+)px/g, (_, size) => {
+    const scaled = Math.round(Number(size) * scale * 10) / 10;
+    return `font-size:${scaled}px`;
+  });
+  if (accent) {
+    next = next.replace(new RegExp(CL_NAVY, 'ig'), accent);
+  }
+  return next;
+}
+
+function letterParagraphs(body) {
+  const paras = (Array.isArray(body) ? body : []).map(p => String(p || '').trim()).filter(Boolean);
+  return paras.map(p => `
+    <p style="font-size:11px;line-height:1.6;color:${CL_CHARCOAL};font-family:Aptos,'Segoe UI',Arial,sans-serif;margin:0 0 12px;">${mdHtml(p)}</p>
+  `).join('');
+}
+
+function formatLetterDate(dateStr) {
+  const s = String(dateStr || '').trim();
+  if (s) return s;
+  return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function buildCoverLetterHtml(letterRaw) {
+  const letter = letterRaw || {};
+  const contactParts = [
+    letter.sender_email,
+    letter.sender_phone,
+    letter.sender_location,
+    letter.sender_linkedin && urlDisplay(letter.sender_linkedin),
+  ].filter(Boolean);
+
+  const recipientLines = [letter.recipient_name, letter.recipient_title, letter.company, letter.recipient_location]
+    .map(s => String(s || '').trim()).filter(Boolean);
+
+  const reLine = [letter.role_title, letter.company].filter(Boolean).join(' — ');
+
+  const body = `
+    <div style="margin-bottom:20px;text-align:center;">
+      <h1 style="font-size:20px;font-weight:700;color:${CL_NAVY};margin:0;letter-spacing:-0.01em;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(letter.sender_name || '')}</h1>
+      ${contactParts.length ? `<p style="font-size:10px;color:${CL_CHARCOAL};margin:5px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(contactParts.join('  |  '))}</p>` : ''}
+    </div>
+
+    <p style="font-size:11px;color:${CL_CHARCOAL};margin:0 0 16px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(formatLetterDate(letter.letter_date))}</p>
+
+    ${recipientLines.length ? `
+      <div style="margin-bottom:16px;">
+        ${recipientLines.map(l => `<p style="font-size:11px;color:${CL_CHARCOAL};margin:0;line-height:1.45;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(l)}</p>`).join('')}
+      </div>` : ''}
+
+    ${reLine ? `<p style="font-size:11px;font-weight:700;color:${CL_NAVY};margin:0 0 16px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">Re: ${esc(reLine)}</p>` : ''}
+
+    <p style="font-size:11px;color:${CL_CHARCOAL};margin:0 0 14px;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(letter.salutation || 'Dear Hiring Team,')}</p>
+
+    ${letterParagraphs(JSON.parse(letter.body || '[]'))}
+
+    <p style="font-size:11px;color:${CL_CHARCOAL};margin:14px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(letter.closing || 'Sincerely,')}</p>
+    <p style="font-size:11px;color:${CL_CHARCOAL};margin:2px 0 0;font-family:Aptos,'Segoe UI',Arial,sans-serif;">${esc(letter.sender_name || '')}</p>
+  `;
+
+  let html = wrap(body);
+  const name = String(letter.sender_name || '').trim();
+  const label = [letter.company, letter.role_title].filter(Boolean).join(' ');
+  html = html.replace('<head>', `<head><title>${esc(name ? `${name} — Cover Letter${label ? ' — ' + label : ''}` : 'Cover Letter')}</title>`);
+  return applyLetterAppearance(html, letter);
+}
+
+module.exports = { buildResumeHtml, buildCoverLetterHtml, generatePdf, findChrome };

@@ -128,6 +128,16 @@ export const api = {
       delete: (id, roundId) => req('DELETE', `/jobs/${id}/rounds/${roundId}`),
     },
   },
+  coverLetters: {
+    list: () => req('GET', '/cover-letters'),
+    create: (data) => req('POST', '/cover-letters', data),
+    get: (id) => req('GET', `/cover-letters/${id}`),
+    update: (id, data) => req('PUT', `/cover-letters/${id}`, data),
+    delete: (id) => req('DELETE', `/cover-letters/${id}`),
+    clone: (id) => req('POST', `/cover-letters/${id}/clone`, {}),
+    tagResume: (id, resumeId) => req('POST', `/cover-letters/${id}/resumes`, { resume_id: resumeId }),
+    untagResume: (id, resumeId) => req('DELETE', `/cover-letters/${id}/resumes/${resumeId}`),
+  },
   prepPlans: {
     list: () => req('GET', '/prep-plans'),
     get: (id) => req('GET', `/prep-plans/${id}`),

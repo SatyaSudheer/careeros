@@ -459,4 +459,44 @@ try {
   }
 } catch (e) { /* already migrated or no profile yet */ }
 
+
+// ── Cover Letters ────────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cover_letters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL DEFAULT 'Untitled Cover Letter',
+    company TEXT DEFAULT '',
+    role_title TEXT DEFAULT '',
+    job_id INTEGER,
+    recipient_name TEXT DEFAULT '',
+    recipient_title TEXT DEFAULT '',
+    recipient_location TEXT DEFAULT '',
+    letter_date TEXT DEFAULT '',
+    salutation TEXT DEFAULT 'Dear Hiring Team,',
+    body TEXT DEFAULT '[]',
+    closing TEXT DEFAULT 'Sincerely,',
+    sender_name TEXT DEFAULT '',
+    sender_email TEXT DEFAULT '',
+    sender_phone TEXT DEFAULT '',
+    sender_location TEXT DEFAULT '',
+    sender_linkedin TEXT DEFAULT '',
+    template TEXT DEFAULT 'classic',
+    font_scale REAL DEFAULT 1,
+    accent_color TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (job_id) REFERENCES job_applications(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS cover_letter_resumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cover_letter_id INTEGER NOT NULL,
+    resume_id INTEGER NOT NULL,
+    tagged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(cover_letter_id, resume_id),
+    FOREIGN KEY (cover_letter_id) REFERENCES cover_letters(id) ON DELETE CASCADE,
+    FOREIGN KEY (resume_id) REFERENCES resumes(id) ON DELETE CASCADE
+  );
+`);
+
 module.exports = db;

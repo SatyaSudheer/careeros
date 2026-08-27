@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Briefcase, BookOpen, User, LayoutDashboard, Sparkles, Compass, Library, Type } from 'lucide-react';
+import { FileText, Briefcase, BookOpen, User, LayoutDashboard, Sparkles, Compass, Library, Type, Mail } from 'lucide-react';
 import AiSettingsModal from './AiSettingsModal.jsx';
 import AppearanceModal from './AppearanceModal.jsx';
 
 const NAV = [
   { path: '/',      icon: LayoutDashboard, label: 'Dashboard',    exact: true },
   { path: '/jobs',  icon: Briefcase,       label: 'Job Tracker',  exact: false },
+  { path: '/cover-letters', icon: Mail,      label: 'Cover Letters', exact: false },
   { path: '/prep',  icon: BookOpen,        label: 'Prep Tracker', exact: false },
   { path: '/questions', icon: Library,     label: 'Question Bank', exact: false },
   { path: '/next-role', icon: Compass,     label: 'Next Role',    exact: false },

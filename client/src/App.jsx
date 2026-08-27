@@ -8,6 +8,8 @@ import PrepDashboard from './pages/PrepDashboard.jsx';
 import PrepPlanBuilder from './pages/PrepPlanBuilder.jsx';
 import NextRole from './pages/NextRole.jsx';
 import QuestionBank from './pages/QuestionBank.jsx';
+import CoverLetters from './pages/CoverLetters.jsx';
+import CoverLetterEditor from './pages/CoverLetterEditor.jsx';
 
 export default function App() {
   return (
@@ -18,9 +20,11 @@ export default function App() {
         <Route path="/prep" element={<Layout><PrepDashboard /></Layout>} />
         <Route path="/next-role" element={<Layout><NextRole /></Layout>} />
         <Route path="/questions" element={<Layout><QuestionBank /></Layout>} />
+        <Route path="/cover-letters" element={<Layout><CoverLetters /></Layout>} />
         <Route path="/profile" element={<Layout><Profile /></Layout>} />
         {/* Detail views — full screen, no sidebar */}
         <Route path="/resumes/:id" element={<Editor />} />
+        <Route path="/cover-letters/:id" element={<CoverLetterEditor />} />
         <Route path="/prep-plans/:id" element={<PrepPlanBuilder />} />
       </Routes>
     </BrowserRouter>
